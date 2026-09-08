@@ -14,7 +14,7 @@ from core.loader import load_units
 
 from . import theme
 from .assets import text
-from .board_view import PieceVisual, draw_piece, trait_tag
+from .board_view import PieceVisual, draw_piece, shop_card_art, trait_tag, visual_from_tid
 from .widgets import panel
 
 # ---------- 命中检测 ----------
@@ -92,20 +92,6 @@ def _bench_equip_badges(surface: pygame.Surface, rect: pygame.Rect, equip: list)
         pygame.draw.polygon(surface, (12, 13, 18), pts, width=1)
 
 
-def _rarity_header(surface: pygame.Surface, rect: pygame.Rect, rar: dict) -> None:
-    """卡片顶部一条渐变高光，颜色跟着稀有度走。"""
-    h = max(3, int(rect.height * 0.22))
-    s = theme.S
-    steps = max(3, h // max(1, s))
-    for i in range(steps):
-        t = 1 - i / steps
-        y = rect.y + i * (h // steps)
-        color = theme.mix(rar["fill"], rar["edge"], 0.25 + 0.5 * t)
-        pygame.draw.rect(
-            surface, color, (rect.x + 1, y, rect.width - 2, h // steps + 1), border_radius=0
-        )
-
-
 def draw_shop(
     surface: pygame.Surface,
     slots,
@@ -130,16 +116,13 @@ def draw_shop(
         rar = theme.rarity(item.cost)
         up = hints[i] if hints else 0
 
-        panel(surface, rect, rar["fill"], radius=10, border=rar["edge"], width=max(2, 2 * s))
-        _rarity_header(surface, rect, rar)
-
-        # 名字（卡片中部左侧）
-        text(
-            surface,
-            tpl.name,
-            theme.FS_NORMAL,
-            theme.TEXT,
-            (rect.x + 12 * s, rect.y + int(rect.height * 0.40)),
+        # 卡面主体：有贴图原图铺满整卡，无贴图用渐变底+放大程序头像，
+        # 底部渐暗带含名字，整体已按圆角裁好并缓存。
+        radius = max(2, int(10 * s))
+        surface.blit(shop_card_art(item.tid, rect.size, radius), rect.topleft)
+        # 稀有度描边（盖在主体边沿，标注费用档位）
+        pygame.draw.rect(
+            surface, rar["edge"], rect, width=max(2, int(2 * s)), border_radius=radius
         )
 
         # 可升星提示（需求2）：金色呼吸外框 + 左上角星级徽章

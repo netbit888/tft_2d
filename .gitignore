@@ -13,6 +13,7 @@ env/
 *.jpg
 *.jpeg
 *.gif
+!assets/units/*.png
 
 # 系统文件
 Thumbs.db

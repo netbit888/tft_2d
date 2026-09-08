@@ -19,7 +19,7 @@ import pygame
 from core.loader import load_traits, load_units
 
 from . import theme
-from .assets import font
+from .assets import font, text_shadow
 from .widgets import bar, hp_color, panel
 
 # ---------- 坐标换算（蜂窝六边形，odd-r） ----------
@@ -208,6 +208,7 @@ def _clear_caches() -> None:
     _AVATAR_CACHE.clear()
     _FLASH_CACHE.clear()
     _TEX_CACHE.clear()
+    _SHOP_ART_CACHE.clear()
     _GRID_CACHE.clear()
 
 
@@ -342,6 +343,74 @@ def _flash_disc(size: int) -> pygame.Surface:
 
 def piece_size(rect: pygame.Rect, scale: float = 1.0) -> int:
     return max(8, int(min(rect.width, rect.height) * theme.PIECE_RATIO * scale))
+
+
+# ---------- 商店卡卡面（整卡立绘，静态缓存） ----------
+
+# 商店卡片不画棋盘那种小圆头像，而是把贴图按“填满卡片”的构图铺开：
+# - 有贴图：原图等比放大至 cover 整卡，居中裁掉溢出部分，不变形；
+# - 无贴图：稀有度纵向渐变铺底 + 放大程序头像，等补图后无缝切换；
+# - 底部压一条渐暗带放名字，保证任何亮色立绘下都可读；
+# - 整卡按圆角裁切，整张静态缓存，每帧只 blit 一次。
+_SHOP_ART_CACHE: dict[tuple, pygame.Surface] = {}
+
+
+def shop_card_art(tid: str, size: tuple[int, int], radius: int = 0) -> pygame.Surface:
+    """生成并缓存一张商店卡的静态主体（底图 + 底部名字带）。"""
+    key = (tid, size[0], size[1], radius)
+    cached = _SHOP_ART_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    w, h = size
+    layer = pygame.Surface(size, pygame.SRCALPHA)
+    tpl = load_units()[tid]
+    tex = _avatar_texture(tid)
+
+    if tex is not None:
+        # 有贴图：cover 铺满，居中裁边，不拉伸变形
+        tw, th = tex.get_size()
+        scale = max(w / tw, h / th)
+        cw, ch = max(1, int(round(tw * scale))), max(1, int(round(th * scale)))
+        img = pygame.transform.smoothscale(tex, (cw, ch)) if (cw, ch) != (tw, th) else tex
+        layer.blit(img, ((w - cw) // 2, (h - ch) // 2))
+    else:
+        # 无贴图：整卡按稀有度做纵向渐变，中央放大程序头像（与棋盘同源）
+        v = visual_from_tid(tid, 1, "blue")
+        rar = theme.rarity(tpl.cost)
+        top = theme.mix(rar["fill"], (255, 255, 255), 0.06)
+        bottom = theme.mix(rar["fill"], (8, 10, 15), 0.82)
+        for yy in range(h):
+            t = yy / max(1, h - 1)
+            pygame.draw.line(layer, theme.mix(top, bottom, t), (0, yy), (w - 1, yy))
+
+        d = max(10, int(h * 0.66))
+        cx, cy = w // 2, int(h * 0.46)
+        # 头像先从渐变里“浮”出来：一圈柔和暗衬 + 落影
+        pygame.draw.circle(layer, (0, 0, 0, 26), (cx, cy + 2), d // 2 + 5)
+        pygame.draw.circle(layer, (0, 0, 0, 46), (cx, cy + 2), d // 2 + 2)
+        pygame.draw.circle(layer, (0, 0, 0, 90), (cx, cy + 3), d // 2)
+        av = _avatar(v, d)
+        layer.blit(av, (cx - av.get_width() // 2, cy - av.get_height() // 2))
+
+    # 底部渐暗带 + 名字（放进同一张缓存，避免每帧重画文字）
+    bh = max(10, int(h * 0.30))
+    band_y = h - bh
+    for yy in range(bh):
+        a = int(225 * ((yy + 1) / bh) ** 1.35)
+        pygame.draw.line(layer, (0, 0, 0, a), (0, band_y + yy), (w - 1, band_y + yy))
+
+    fs = theme.FS_NORMAL
+    text_shadow(layer, tpl.name, fs, (240, 242, 248), (max(4, int(w * 0.075)), band_y + max(1, (bh - fs) // 2)))
+
+    # 圆角裁切，避免立绘直角顶出卡框
+    if radius > 0:
+        mask = pygame.Surface(size, pygame.SRCALPHA)
+        pygame.draw.rect(mask, (255, 255, 255, 255), (0, 0, w, h), border_radius=radius)
+        layer.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+    _SHOP_ART_CACHE[key] = layer
+    return layer
 
 
 def draw_piece(
