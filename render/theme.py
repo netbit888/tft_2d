@@ -89,12 +89,18 @@ def _layout(s: int) -> dict:
     roster_y = top_h + 12 * s
     roster_row_h = 30 * s
 
-    # 装备栏：3 列 x 4 行网格，放在战况面板下方
+    # 装备栏：每页 3 列 x 4 行网格（库存超一页后用滚轮翻页，背包不设上限），
+    # 面板自上而下：标题条（含翻页指示）→ 网格 → 底部留白。
     item_cols, item_rows = 3, 4
     item_cell = 40 * s
     item_gap = 8 * s
-    item_w = item_cols * item_cell + (item_cols - 1) * item_gap
-    item_h = item_rows * item_cell + (item_rows - 1) * item_gap
+    item_pad_x = 12 * s
+    item_title_h = 30 * s
+    item_foot = 6 * s
+    item_grid_w = item_cols * item_cell + (item_cols - 1) * item_gap
+    item_grid_h = item_rows * item_cell + (item_rows - 1) * item_gap
+    item_w = item_grid_w + 2 * item_pad_x
+    item_h = item_title_h + item_grid_h + item_foot
     item_x = win_w - item_w - 12 * s
     item_y = roster_y + roster_row_h * 9 + 24 * s  # 战况面板最多 8 行 + 标题
 
@@ -276,11 +282,13 @@ def _layout(s: int) -> dict:
         "TRAIT_DOT": 16 * s,
         # ---------- 提示行（放在备战席与商店之间，不再和商店卡重叠） ----------
         "HINT_Y": bench_y + bench_cell + 8 * s,
-        # ---------- 装备栏（右侧中部 3x4 网格） ----------
+        # ---------- 装备栏（右侧中部，标题 + 每页 3x4 网格，背包不限量） ----------
         "ITEM_CELL": item_cell,
         "ITEM_GAP": item_gap,
         "ITEM_COLS": item_cols,
         "ITEM_ROWS": item_rows,
+        "ITEM_PAD_X": item_pad_x,
+        "ITEM_TITLE_H": item_title_h,
         "ITEM_BENCH_W": item_w,
         "ITEM_BENCH_H": item_h,
         "ITEM_BENCH_X": item_x,

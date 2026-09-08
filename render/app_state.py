@@ -14,7 +14,6 @@ import pygame
 
 from core.deploy import move_piece, piece_at
 from core.items import (
-    ITEM_BENCH_CAP,
     MAX_ITEMS_PER_PIECE,
     ItemInstance,
     combined_item_id,
@@ -154,6 +153,9 @@ class AppStateMixin:
                     self.next_round()
 
     def handle_deploy(self, event: pygame.event.Event) -> None:
+        if event.type == pygame.MOUSEWHEEL:
+            self._scroll_item_bench(event)
+            return
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 # 观察视角切换（需求1）：右侧血条 / 战况面板行
@@ -168,7 +170,7 @@ class AppStateMixin:
                 if idx is not None:
                     self.buy_card(idx)
                     return
-                iidx = item_slot_at(event.pos)
+                iidx = item_slot_at(event.pos, self.item_scroll, len(self.game.you.item_bench))
                 if iidx is not None and iidx < len(self.game.you.item_bench):
                     self.start_item_drag(iidx)
                     return
@@ -209,6 +211,25 @@ class AppStateMixin:
                 else:
                     self.drop(event.pos)
 
+    def _scroll_item_bench(self, event) -> None:
+        """鼠标悬停在装备栏面板上时用滚轮翻页（背包无上限，每页 3x4 格）。"""
+        from .item_view import clamp_scroll
+
+        you = self.game.you
+        if self.armory_open or not you.item_bench:
+            return
+        panel = pygame.Rect(
+            theme.ITEM_BENCH_X,
+            theme.ITEM_BENCH_Y,
+            theme.ITEM_BENCH_W,
+            theme.ITEM_BENCH_H,
+        )
+        if not panel.collidepoint(pygame.mouse.get_pos()):
+            return
+        step = theme.ITEM_COLS  # 每滚一格滚动一行
+        dy = getattr(event, "y", 0)
+        self.item_scroll = clamp_scroll(self.item_scroll - dy * step, len(you.item_bench))
+
     def _toggle_armory(self) -> None:
         """F2 / ESC / 关闭按钮 / 点面板外：开关成装自选台。
 
@@ -241,7 +262,7 @@ class AppStateMixin:
                 return
 
     def _grant_from_armory(self, item_id: str) -> None:
-        """点击自选台格子：放入一件到装备栏（可连点，任意数量）。
+        """点击自选台格子：放入一件到装备栏（可连点，任意数量，背包无上限）。
 
         金制拆卸器比较特殊：装备栏已有则不再重复获取（它不消耗）。
         """
@@ -254,12 +275,8 @@ class AppStateMixin:
             self.message = f"获得 {item_name(item_id)}：拖到棋子身上卸下其全部装备（不消耗）"
             self.audio.sfx.play("buy")
             return
-        if len(you.item_bench) >= ITEM_BENCH_CAP:
-            self.message = f"装备栏已满（{ITEM_BENCH_CAP} 格），先给棋子装备或腾出位置"
-            self.audio.sfx.play("error")
-            return
         you.item_bench.append(ItemInstance(item_id))
-        self.message = f"获得 {item_name(item_id)}（可继续点击，每次 1 件）"
+        self.message = f"获得 {item_name(item_id)}（装备栏共 {len(you.item_bench)} 件，可继续点击）"
         self.audio.sfx.play("buy")
 
     def _hit_piece(self, pos):
@@ -362,7 +379,7 @@ class AppStateMixin:
         return None
 
     def drop_item(self, pos) -> None:
-        """放下装备：到棋子=装备/换装，到装备栏=合成/卸下，否则放回原处。"""
+        """放下装备：到棋子=合成/装备/换装，到装备栏=合成/卸下，否则放回原处。"""
         drag, self.drag = self.drag, None
         you = self.game.you
         item = drag["item"]
@@ -374,18 +391,45 @@ class AppStateMixin:
             self._use_remover(item, pos)
             return
 
+        def pop_item(seq: list, target) -> bool:
+            """按对象身份移除（同值基础装备可能有多件，用 == 移除会误删）。"""
+            for k, x in enumerate(seq):
+                if x is target:
+                    del seq[k]
+                    return True
+            if target in seq:  # 兜底：值相同也接受
+                seq.remove(target)
+                return True
+            return False
+
         def take_out() -> None:
             """从拖拽源移出装备（装备栏 / 棋子身上）。"""
             if src == "bench":
-                you.item_bench.remove(item)
-            elif src_piece is not None and item in src_piece.equip:
-                src_piece.equip.remove(item)
+                pop_item(you.item_bench, item)
+            elif src_piece is not None:
+                pop_item(src_piece.equip, item)
 
-        # 拖到棋盘/备战席的棋子身上 = 装备 / 换装
+        # 拖到棋盘/备战席的棋子身上
         target = self._piece_at_screen(pos)
         if target is not None:
             if target is src_piece:
                 self.message = "已放回"
+                return
+            # 需求2：拖基础件到"身上带散件"的棋子 → 与第一件可合成散件自动合成
+            mate = self._piece_combine_mate(target, item)
+            if mate is not None:
+                key = combined_item_id(item.item_id, mate.item_id)
+                take_out()
+                pop_item(target.equip, mate)
+                target.equip.append(ItemInstance(key, components=tuple(key.split("+", 1))))
+                center = self._piece_center_screen(target)
+                if center is not None:
+                    self.fx.append(
+                        {"kind": "star", "pos": center, "cost": 3, "life": 0.7, "total": 0.7}
+                    )
+                name = load_units()[target.tid].name
+                self.message = f"合成 {item_name(key)}！已装备到 {name}"
+                self.audio.sfx.play("combine")
                 return
             if len(target.equip) >= MAX_ITEMS_PER_PIECE:
                 self.message = f"{item_name(item.item_id)} 无法装备：已满 {MAX_ITEMS_PER_PIECE} 件"
@@ -400,11 +444,13 @@ class AppStateMixin:
             self.audio.sfx.play("equip")
             return
 
-        # 拖到装备栏：空格=卸下/放回，有装备的格子=尝试合成
-        from core.items import ITEM_BENCH_CAP, ItemInstance
+        # 拖到装备栏：有装备的格=合成/放回，可见空格=从棋子身上卸下。
+        # 装备栏背包无上限，命中检测统一走"当前滚动窗口 -> 绝对下标"。
+        from .item_view import clamp_scroll
 
-        dest = item_slot_at(pos)
-        if dest is not None and dest < ITEM_BENCH_CAP:
+        self.item_scroll = clamp_scroll(self.item_scroll, len(you.item_bench))
+        dest = item_slot_at(pos, self.item_scroll, len(you.item_bench))
+        if dest is not None:
             if dest < len(you.item_bench):
                 other = you.item_bench[dest]
                 if other is item:
@@ -412,16 +458,17 @@ class AppStateMixin:
                 key = combined_item_id(item.item_id, other.item_id)
                 if key:
                     take_out()
-                    you.item_bench.remove(other)
-                    # 记录两件基础件：卖出装备的棋子时才能拆回（否则基础件凭空消失）
-                    parts = tuple(key.split("+", 1))
-                    you.item_bench.append(ItemInstance(key, components=parts))
+                    pop_item(you.item_bench, other)
+                    you.item_bench.append(ItemInstance(key, components=tuple(key.split("+", 1))))
                     self.message = f"合成 {item_name(key)}！"
                     self.audio.sfx.play("combine")
                     self.fx.append(
                         {
                             "kind": "star",
-                            "pos": (theme.ITEM_BENCH_X + theme.ITEM_BENCH_W // 2, theme.ITEM_BENCH_Y + 30 * theme.S),
+                            "pos": (
+                                theme.ITEM_BENCH_X + theme.ITEM_BENCH_W // 2,
+                                theme.ITEM_BENCH_Y + theme.ITEM_TITLE_H // 2,
+                            ),
                             "cost": 3,
                             "life": 0.7,
                             "total": 0.7,
@@ -430,7 +477,7 @@ class AppStateMixin:
                     return
                 self.message = "无法合成，已放回"
                 return
-            # 空装备栏格：从棋子身上卸下放入装备栏
+            # 可见空格：从棋子身上卸下放入装备栏
             if src == "piece":
                 take_out()
                 you.item_bench.append(item)
@@ -455,6 +502,7 @@ class AppStateMixin:
         moved = list(target.equip)
         target.equip.clear()
         you.item_bench[0:0] = moved
+        self.item_scroll = 0  # 卸下装备插在栏首，滚回顶部立即可见
         names = "、".join(item_name(it.item_id) for it in moved)
         self.message = (
             f"{item_name(item.item_id)}：已卸下 {len(moved)} 件装备回装备栏（{names}）"
@@ -472,6 +520,27 @@ class AppStateMixin:
         idx = bench_slot_at(pos)
         if idx is not None and idx < len(you.bench):
             return you.bench[idx]
+        return None
+
+    def _piece_combine_mate(self, target, item):
+        """target 身上第一件能与 item 合成的基础件；无则返回 None。
+
+        需求2：拖一件基础装备到"身上带着散件"的棋子时，与它身上的散件
+        直接合成（顺序取 target.equip 里靠前的可合成件，结果确定可预期）。
+        """
+        for o in target.equip:
+            if combined_item_id(item.item_id, o.item_id):
+                return o
+        return None
+
+    def _piece_center_screen(self, p):
+        """棋子当前所在位置的屏幕中心（棋盘 / 备战席），用于合成闪光定位。"""
+        if p.pos is not None and p in self.game.you.board:
+            col, row = int(round(p.pos[0])), int(round(p.pos[1]))
+            if col in range(theme.BOARD_COLS) and row in range(theme.BOARD_ROWS):
+                return cell_rect(col, row).center
+        if p in self.game.you.bench:
+            return bench_slot_rect(self.game.you.bench.index(p)).center
         return None
 
     def drop(self, pos) -> None:
@@ -492,6 +561,7 @@ class AppStateMixin:
         if pos[1] >= theme.SHOP_Y - 10 * theme.S:  # 拖到商店区域 = 卖出
             before = you.gold
             self.message = sell_piece(you, piece)
+            self.item_scroll = 0  # 回栏装备插在栏首，滚回顶部立即可见
             self._push_gold_delta(before)
             if you.gold > before:
                 self.audio.sfx.play("sell")
@@ -593,6 +663,7 @@ class AppStateMixin:
             piece = self.piece_at_board(*cell)
             if piece is not None:
                 self.message = sell_piece(you, piece)
+                self.item_scroll = 0  # 回栏装备插在栏首，滚回顶部立即可见
                 self._push_gold_delta(before)
                 self._close_detail_of(piece)
                 if you.gold > before:
@@ -602,6 +673,7 @@ class AppStateMixin:
         if idx is not None and idx < len(you.bench):
             piece = you.bench[idx]
             self.message = sell_piece(you, piece)
+            self.item_scroll = 0
             self._push_gold_delta(before)
             self._close_detail_of(piece)
             if you.gold > before:

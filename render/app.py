@@ -85,6 +85,7 @@ class App(AppDrawMixin, AppStateMixin):
         self.gold_shown = float(game.you.gold)
         self.banner: dict | None = None  # 回合横幅
         self.hover_item: int | None = None
+        self.item_scroll = 0  # 装备栏背包滚动偏移（无上限背包，鼠标悬停滚轮翻页）
         self.armory_open = False  # 成装自选台（F2 唤出/关闭）
         self.xp_held = False  # 升级按钮是否被按住（长按连升）
         self.xp_cd = 0.0  # 长按连升冷却
@@ -318,4 +319,6 @@ class App(AppDrawMixin, AppStateMixin):
         if self.phase in (self.PHASE_RESULT, self.PHASE_OVER):
             self.draw_result()
         self.draw_banner()
+        # 需求3：拖拽中"跟手对象"最后绘制，保证无论拖到装备栏/按钮/商店上方都不被遮挡
+        self.draw_drag_icon()
         pygame.display.flip()

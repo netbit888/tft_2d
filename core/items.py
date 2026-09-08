@@ -10,8 +10,8 @@ from dataclasses import dataclass
 
 from .dataio import load_json as _load_json
 
-MAX_ITEMS_PER_PIECE = 3
-ITEM_BENCH_CAP = 12  # 玩家装备栏上限
+MAX_ITEMS_PER_PIECE = 3  # 单个棋子最多携带装备数
+# 玩家装备栏背包不设容量上限：GUI 用"每页 3x4 + 滚轮"浏览全部装备。
 
 # 掉落节奏：从第 2 回合起，每回合掉落概率
 DROP_CHANCE = 0.6
@@ -66,6 +66,20 @@ def combined_item_id(a: str, b: str) -> str | None:
     return combine_key(a, b)
 
 
+def first_combine_with(item_id: str, others) -> str | None:
+    """在一批装备中找第一件能与 item_id 合成的基础件，返回其 id。
+
+    顺序敏感：把"身上/栏里的装备顺序"传进来即可获得确定性的首选合成对象；
+    item_id 非基础件或找不到可合成目标时返回 None。
+    """
+    if not is_base_item(item_id):
+        return None
+    for oid in others:
+        if combine_key(item_id, oid):
+            return oid
+    return None
+
+
 def item_name(item_id: str) -> str:
     items = load_items()
     if item_id in items["base"]:
@@ -101,9 +115,8 @@ class ItemInstance:
     """玩家持有的一件装备。
 
     item_id 可以是基础装备 id，也可以是合成公式 key（如 "sword+bow"）。
-    高级装备记录组成它的两个基础件，卖出时拆回基础件；凡 item_id 带 "+" 的
-    一律自动补全 components（合成公式与顺序无关，key 里就是原料），杜绝
-    因某个产出路径忘记记录而丢失"能拆回"的信息。
+    高级装备自动记录组成它的两件基础件（components 自描述，供配方展示与
+    未来的拆卸功能使用；卖出棋子时装备一律整件回栏、不再拆散）。
     """
 
     item_id: str

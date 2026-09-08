@@ -86,11 +86,18 @@ class AppDrawMixin:
         """装备栏面板；拖基础装备时给可合成的目标格描金框。"""
         if self.phase != self.PHASE_DEPLOY:
             return
-        draw_item_bench(self.screen, self.game.you.item_bench, hover=self.hover_item)
+        you = self.game.you
+        draw_item_bench(
+            self.screen, you.item_bench, hover=self.hover_item, scroll=self.item_scroll
+        )
         drag = self.drag
         if drag and drag.get("kind") == "item" and is_base_item(drag["item"].item_id):
             draw_combine_candidates(
-                self.screen, self.game.you.item_bench, drag["item"], drag["slot"]
+                self.screen,
+                you.item_bench,
+                drag["item"],
+                drag["slot"],
+                scroll=self.item_scroll,
             )
 
     def draw_roster_ui(self) -> None:
@@ -383,13 +390,14 @@ class AppDrawMixin:
         text(self.screen, "   |   ".join(msgs), theme.FS_TINY, theme.TEXT_DIM, (theme.PAD, theme.HINT_Y))
 
     def draw_drag(self) -> None:
+        """拖拽场景提示层（画在棋盘层）：落点高亮 / 原位置占位 / 卖出提示。
+
+        与"跟手对象"分开：跟手棋子与装备图标由 draw_drag_icon 在所有面板
+        之后绘制，保证不会被装备栏 / 按钮等遮挡（需求3）。
+        """
         drag = self.drag
-        if not drag:
-            return
-        # 装备拖拽：单独绘制跟手装备图标
-        if drag.get("kind") == "item":
-            self._draw_item_drag(drag)
-            return
+        if not drag or drag.get("kind") == "item":
+            return  # 装备拖拽没有棋盘场景提示，跟手部分统一交给 draw_drag_icon
         piece = drag["piece"]
         v = visual_from_tid(piece.tid, piece.star, "blue")
         mouse = drag["mouse"]
@@ -421,10 +429,22 @@ class AppDrawMixin:
             value = load_units()[piece.tid].cost * copies
             tooltip(self.screen, f"卖出 +{value} 金", (mouse[0] + 12 * theme.S, theme.SHOP_Y - 34 * theme.S))
 
-        # 跟手棋子（略放大）
-        size = theme.CELL
-        r = pygame.Rect(0, 0, size, size)
-        r.center = mouse
+    def draw_drag_icon(self) -> None:
+        """跟手对象层：拖拽中的棋子 / 装备图标，在全部面板之后绘制（需求3）。
+
+        独立成层后，无论把装备拖到装备栏、右侧按钮区还是商店上方，跟手
+        图标始终最上层、不会被遮挡。
+        """
+        drag = self.drag
+        if not drag:
+            return
+        if drag.get("kind") == "item":
+            self._draw_item_drag(drag)
+            return
+        piece = drag["piece"]
+        v = visual_from_tid(piece.tid, piece.star, "blue")
+        r = pygame.Rect(0, 0, theme.CELL, theme.CELL)
+        r.center = drag["mouse"]
         draw_piece(self.screen, r, v, scale=1.10)
 
     def _draw_item_drag(self, drag) -> None:
@@ -447,7 +467,8 @@ class AppDrawMixin:
             center=True,
         )
 
-        # 悬停棋子高亮，提示可装备
+        # 悬停棋子高亮：金粗圈=可与身上散件合成（松手即合成）；绿=可装备；
+        # 红=已满 3 件；金制拆卸器则提示"可卸下装备"
         target = self._piece_at_screen(mouse)
         if target is not None:
             # 找到棋子的屏幕中心
@@ -460,6 +481,8 @@ class AppDrawMixin:
             if is_special_item(item_id):
                 color = theme.GOLD if target.equip else theme.TEXT_DIM
                 pygame.draw.circle(self.screen, color, center, theme.CELL // 2, width=2)
+            elif drag.get("piece") is not target and self._piece_combine_mate(target, drag["item"]) is not None:
+                pygame.draw.circle(self.screen, theme.GOLD, center, theme.CELL // 2, width=3)
             elif len(target.equip) >= MAX_ITEMS_PER_PIECE:
                 pygame.draw.circle(self.screen, theme.HP_RED, center, theme.CELL // 2, width=2)
             else:
@@ -486,7 +509,7 @@ class AppDrawMixin:
                 return trait_records(tid, count), theme.TRAIT_COLORS.get(tid, theme.TRAIT_FALLBACK)
 
         # 装备栏：属性 + 特效 + 当前能合的配方
-        iidx = item_slot_at(mouse)
+        iidx = item_slot_at(mouse, self.item_scroll, len(you.item_bench))
         if iidx is not None and iidx < len(you.item_bench):
             item_id = you.item_bench[iidx].item_id
             records = item_records(item_id, have=self._bench_base_counts())
@@ -551,21 +574,38 @@ class AppDrawMixin:
             draw_tip(self.screen, records, (mouse[0] + 12 * s, mouse[1]), accent=accent)
 
     def _drag_combine_tip(self) -> None:
-        """拖一件基础装备悬停在另一件上：显示合成结果预览。"""
+        """拖一件基础装备时的合成结果预览：
+        1) 悬停在装备栏另一件上；
+        2) 悬停在"身上带可合成散件"的棋子上（需求2，松手即合成并装备）。
+        """
         from .info import combine_preview_records
 
         drag = self.drag
         you = self.game.you
-        idx = item_slot_at(drag["mouse"])
-        if idx is None or idx >= len(you.item_bench) or idx == drag["slot"]:
-            return
-        other = you.item_bench[idx]
-        if other is drag["item"]:
-            return
-        records = combine_preview_records(drag["item"].item_id, other.item_id)
-        if records:
-            mouse = drag["mouse"]
-            draw_tip(self.screen, records, (mouse[0] + 12 * theme.S, mouse[1]), accent=theme.GOLD)
+        item = drag["item"]
+        mouse = drag["mouse"]
+        tip_pos = (mouse[0] + 12 * theme.S, mouse[1])
+
+        # 装备栏：与另一件基础装备合成
+        idx = item_slot_at(mouse, self.item_scroll, len(you.item_bench))
+        if idx is not None and idx < len(you.item_bench) and idx != drag["slot"]:
+            other = you.item_bench[idx]
+            if other is not item:
+                records = combine_preview_records(item.item_id, other.item_id)
+                if records:
+                    draw_tip(self.screen, records, tip_pos, accent=theme.GOLD)
+                return
+
+        # 棋子：与它身上的散件合成（同样显示合成详情）
+        target = self._piece_at_screen(mouse)
+        if target is not None and drag.get("piece") is not target:
+            mate = self._piece_combine_mate(target, item)
+            if mate is not None:
+                records = combine_preview_records(item.item_id, mate.item_id)
+                if records:
+                    name = load_units()[target.tid].name
+                    records.append((f"松手合成并装备到 {name}", theme.FS_TINY, theme.TEXT_DIM))
+                    draw_tip(self.screen, records, tip_pos, accent=theme.GOLD)
 
     def _hover_cell(self):
         if not self.drag:
