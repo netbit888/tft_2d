@@ -1,10 +1,11 @@
 {
   "warrior": {
     "name": "战士",
-    "desc": "战士获得额外攻击力",
+    "desc": "战士获得额外攻击力（固定值，前期收益高）",
     "tiers": [
-      { "count": 2, "mods": { "ad_flat": 12 } },
-      { "count": 4, "mods": { "ad_flat": 30 } }
+      { "count": 2, "mods": { "ad_flat": 15 } },
+      { "count": 4, "mods": { "ad_flat": 35 } },
+      { "count": 6, "mods": { "ad_flat": 70 } }
     ]
   },
   "guardian": {
@@ -12,7 +13,8 @@
     "desc": "护卫获得额外护甲与魔抗",
     "tiers": [
       { "count": 2, "mods": { "armor_flat": 20, "mr_flat": 15 } },
-      { "count": 3, "mods": { "armor_flat": 45, "mr_flat": 35 } }
+      { "count": 4, "mods": { "armor_flat": 45, "mr_flat": 35 } },
+      { "count": 6, "mods": { "armor_flat": 90, "mr_flat": 70 } }
     ]
   },
   "mage": {
@@ -20,15 +22,53 @@
     "desc": "法师获得额外法术强度，技能伤害更高",
     "tiers": [
       { "count": 2, "mods": { "ap_flat": 30 } },
-      { "count": 3, "mods": { "ap_flat": 75 } }
+      { "count": 4, "mods": { "ap_flat": 75 } },
+      { "count": 6, "mods": { "ap_flat": 150 } }
     ]
   },
   "swift": {
     "name": "迅捷",
-    "desc": "迅捷单位获得额外攻击速度",
+    "desc": "迅捷单位获得额外攻击速度（回蓝也更快）",
     "tiers": [
       { "count": 2, "mods": { "attack_speed_pct": 0.15 } },
-      { "count": 4, "mods": { "attack_speed_pct": 0.35 } }
+      { "count": 4, "mods": { "attack_speed_pct": 0.35 } },
+      { "count": 6, "mods": { "attack_speed_pct": 0.6 } }
+    ]
+  },
+  "assassin": {
+    "name": "刺客",
+    "desc": "刺客获得额外暴击率",
+    "tiers": [
+      { "count": 2, "mods": { "crit_flat": 0.15 } },
+      { "count": 4, "mods": { "crit_flat": 0.35 } },
+      { "count": 6, "mods": { "crit_flat": 0.65 } }
+    ]
+  },
+  "knight": {
+    "name": "骑士",
+    "desc": "骑士获得额外生命值加成（百分比，随星级成长）",
+    "tiers": [
+      { "count": 2, "mods": { "hp_pct": 0.1 } },
+      { "count": 4, "mods": { "hp_pct": 0.25 } },
+      { "count": 6, "mods": { "hp_pct": 0.5 } }
+    ]
+  },
+  "hunter": {
+    "name": "猎手",
+    "desc": "猎手造成的所有伤害提高",
+    "tiers": [
+      { "count": 2, "mods": { "damage_amp": 0.08 } },
+      { "count": 4, "mods": { "damage_amp": 0.2 } },
+      { "count": 6, "mods": { "damage_amp": 0.4 } }
+    ]
+  },
+  "warlord": {
+    "name": "统领",
+    "desc": "统领获得额外攻击力加成（百分比，随星级成长）",
+    "tiers": [
+      { "count": 2, "mods": { "ad_pct": 0.1 } },
+      { "count": 4, "mods": { "ad_pct": 0.25 } },
+      { "count": 6, "mods": { "ad_pct": 0.5 } }
     ]
   }
 }

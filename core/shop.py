@@ -43,16 +43,22 @@ class Shop:
             return
 
         odds = odds_for_level(level)  # {费用: 百分比}
-        costs = [c for c, w in odds.items() if w > 0]
-        weights = [odds[c] for c in costs]
+
+        # 先把有库存的棋子按费用分桶；某费用被买空后不参与投掷，
+        # 剩余费用按原概率比重归一化，避免"兜底全费用重抽"击穿等级概率表。
+        tiers: dict[int, list[str]] = {}
+        for tid in ids:
+            tiers.setdefault(templates[tid].cost, []).append(tid)
 
         self.slots = []
         for _ in range(self.SIZE):
+            live = [(c, odds[c]) for c in odds if tiers.get(c)]
+            if not live:  # 理论上所有费用都无货才会到这里
+                live = [(c, 1) for c in tiers]
+            costs = [c for c, _ in live]
+            weights = [w for _, w in live]
             cost = self.rng.weighted_choice(costs, weights)
-            candidates = [t for t in ids if templates[t].cost == cost]
-            if not candidates:  # 该费用无库存时兜底
-                candidates = ids
-            tid = self.rng.choice(candidates)
+            tid = self.rng.choice(tiers[cost])
             self.slots.append(ShopItem(tid=tid, cost=0))
         for item in self.slots:
             item.cost = unit_cost(item.tid)

@@ -1,27 +1,27 @@
 {
-  "_comment": "人口等级：xp_needed 为从上一级升到本级所需经验；board_cap 为本级人口上限。升级成本固定 4 金币买 4 经验。odds 为各费用棋子的刷新概率（百分比，索引=费用-1，当前卡池只有 1/2/3 费）。",
+  "_comment": "人口等级：xp_needed 为从上一级升到本级所需经验；board_cap 为本级人口上限。升级成本固定 4 金币买 4 经验。经验曲线已对齐金铲铲现行节奏（升到 9 级累计约 212 经验）。odds 为各费用棋子的刷新概率（百分比，索引=费用-1，共 1~5 费）。",
   "levels": [
     { "level": 1, "board_cap": 1, "xp_needed": 0 },
     { "level": 2, "board_cap": 2, "xp_needed": 2 },
-    { "level": 3, "board_cap": 3, "xp_needed": 6 },
-    { "level": 4, "board_cap": 4, "xp_needed": 10 },
-    { "level": 5, "board_cap": 5, "xp_needed": 20 },
-    { "level": 6, "board_cap": 6, "xp_needed": 32 },
-    { "level": 7, "board_cap": 7, "xp_needed": 46 },
-    { "level": 8, "board_cap": 8, "xp_needed": 62 },
+    { "level": 3, "board_cap": 3, "xp_needed": 2 },
+    { "level": 4, "board_cap": 4, "xp_needed": 6 },
+    { "level": 5, "board_cap": 5, "xp_needed": 10 },
+    { "level": 6, "board_cap": 6, "xp_needed": 20 },
+    { "level": 7, "board_cap": 7, "xp_needed": 36 },
+    { "level": 8, "board_cap": 8, "xp_needed": 56 },
     { "level": 9, "board_cap": 9, "xp_needed": 80 }
   ],
   "upgrade_cost": 4,
   "upgrade_xp": 4,
   "odds": {
-    "1": [100, 0, 0],
-    "2": [100, 0, 0],
-    "3": [75, 25, 0],
-    "4": [55, 30, 15],
-    "5": [45, 33, 22],
-    "6": [30, 40, 30],
-    "7": [19, 35, 46],
-    "8": [14, 25, 61],
-    "9": [10, 15, 75]
+    "1": [100, 0, 0, 0, 0],
+    "2": [100, 0, 0, 0, 0],
+    "3": [75, 25, 0, 0, 0],
+    "4": [55, 30, 15, 0, 0],
+    "5": [45, 33, 20, 2, 0],
+    "6": [30, 40, 25, 5, 0],
+    "7": [16, 30, 43, 10, 1],
+    "8": [15, 20, 32, 30, 3],
+    "9": [10, 17, 25, 33, 15]
   }
 }

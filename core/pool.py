@@ -12,7 +12,8 @@ from pathlib import Path
 
 from .loader import DATA_DIR, load_units
 
-DEFAULT_COPIES = {"1": 12, "2": 8, "3": 6}
+# 参照金铲铲 8 人局卡池：1~5 费每张 30/25/18/10/9 份（3 星合成需 9 张）
+DEFAULT_COPIES = {"1": 30, "2": 25, "3": 18, "4": 10, "5": 9}
 
 
 def load_pool_config() -> dict:
@@ -34,7 +35,8 @@ class Pool:
     def create(cls, copies_by_cost: dict | None = None) -> "Pool":
         cfg = copies_by_cost or load_pool_config().get("copies_by_cost", DEFAULT_COPIES)
         remaining = {
-            tid: int(cfg.get(str(tpl.cost), 6)) for tid, tpl in load_units().items()
+            tid: int(cfg.get(str(tpl.cost), DEFAULT_COPIES.get(str(tpl.cost), 6)))
+            for tid, tpl in load_units().items()
         }
         return cls(remaining=remaining, capacity=dict(remaining))
 

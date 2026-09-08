@@ -108,12 +108,15 @@ def describe(counts: dict[str, int], traits_data: dict) -> list[str]:
             continue
         key_map = {
             "ad_flat": "攻击力",
+            "ad_pct": "攻击力",
             "ap_flat": "法强",
             "armor_flat": "护甲",
             "mr_flat": "魔抗",
             "attack_speed_pct": "攻速",
             "crit_flat": "暴击率",
             "hp_flat": "生命值",
+            "hp_pct": "生命值",
+            "damage_amp": "伤害",
         }
         parts = []
         for k, v in tier.get("mods", {}).items():
