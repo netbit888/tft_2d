@@ -15,7 +15,7 @@ from core import Game  # noqa: E402
 from render.app import App  # noqa: E402
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description="自走棋 1v1 图形界面")
     ap.add_argument("--seed", type=int, default=None, help="对局随机种子")
     ap.add_argument("--no-log", action="store_true", help="不在控制台打印战斗日志")
@@ -31,7 +31,7 @@ def main() -> None:
         default=1,
         help="玩家数量（1=1v1 对战，8=8 人局）",
     )
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     game = Game(seed=args.seed, num_players=args.players)
     game.begin_round()

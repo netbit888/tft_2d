@@ -6,22 +6,20 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from .loader import DATA_DIR, load_units
+from .dataio import DATA_DIR, load_json
+from .loader import load_units
 
 # 参照金铲铲 8 人局卡池：1~5 费每张 30/25/18/10/9 份（3 星合成需 9 张）
 DEFAULT_COPIES = {"1": 30, "2": 25, "3": 18, "4": 10, "5": 9}
 
 
 def load_pool_config() -> dict:
-    path = DATA_DIR / "pool.json"
-    if not path.exists():
+    """卡池配置（data/pool.json）；文件缺失时回退内置默认。"""
+    if not (DATA_DIR / "pool.json").exists():
         return {"copies_by_cost": DEFAULT_COPIES}
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return load_json("pool.json")
 
 
 @dataclass

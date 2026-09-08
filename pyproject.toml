@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tft2d"
+version = "0.1.0"
+description = "类金铲铲自走棋：纯 Python 战斗内核 + pygame-ce 图形界面（1v1 / 8 人局）"
+readme = "README.md"
+requires-python = ">=3.11"
+keywords = ["tft", "auto-chess", "pygame", "self-playing", "roguelike"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Games/Entertainment",
+]
+dependencies = [
+    "pygame-ce>=2.5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+]
+
+# 入口：`pip install .`（或 `pip install -e .`）后可直接用命令名启动。
+# 不安装时用 `python launcher.py <子命令>` 效果一致。
+[project.scripts]
+tft2d = "launcher:main"
+tft2d-gui = "app:main"
+tft2d-play = "play:main"
+tft2d-sim = "tools.simulate:main"
+
+# core/ 与 render/ 是源码包；tools/ 为可脚本化的工具包。
+# 顶层的 app.py / play.py / launcher.py 以顶层模块形式打进发行包。
+[tool.setuptools]
+packages = ["core", "render", "tools"]
+py-modules = ["app", "play", "launcher"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

@@ -47,11 +47,11 @@ echo ============================================
 set "CH="
 set /p "CH=请输入序号后回车: "
 
-if "%CH%"=="1" %PY% app.py & goto menu
-if "%CH%"=="2" %PY% play.py & goto menu
-if "%CH%"=="3" %PY% play.py --auto & pause & goto menu
-if "%CH%"=="4" %PY% tools\simulate.py --bench 3000 & pause & goto menu
-if "%CH%"=="5" %PY% tools\simulate.py --mirror 3000 & pause & goto menu
+if "%CH%"=="1" %PY% launcher.py gui & goto menu
+if "%CH%"=="2" %PY% launcher.py play & goto menu
+if "%CH%"=="3" %PY% launcher.py play --auto & pause & goto menu
+if "%CH%"=="4" %PY% launcher.py sim --bench 3000 & pause & goto menu
+if "%CH%"=="5" %PY% launcher.py sim --mirror 3000 & pause & goto menu
 if "%CH%"=="0" exit /b 0
 
 echo 无效的选择，请重新输入

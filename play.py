@@ -24,7 +24,6 @@ except Exception:
 
 from core import (  # noqa: E402
     Game,
-    ai_take_turn,
     buy,
     load_traits,
     load_units,
@@ -114,21 +113,28 @@ def ask(prompt: str) -> str:
 
 
 def battle_phase(game: Game, interactive: bool = True) -> None:
-    print(SUBLINE)
-    game.last_ai_log = ai_take_turn(game.enemy, game.shop_enemy, game.rng)
-    if game.last_ai_log:
-        print("电脑的运营：" + "；".join(game.last_ai_log))
+    """战斗阶段：AI 运营 → 补位/配对（AI 互打即时结算）→ 玩家对局 → 结算。
 
-    combat = game.fight()
+    走的是 core.Game 的“单一真源”流程，与图形界面、无头仿真完全一致。
+    """
+    print(SUBLINE)
+    logs = game.run_ai_ops()
+    if logs:
+        print("电脑的运营：" + "；".join(logs))
+
+    combat = game.start_battle()
     if combat is None:
         print("\n（有一方没有上场棋子，跳过战斗）")
     else:
-        print("\n--- 战斗开始 ---")
-        print_log(combat)
-        print("--- 战斗结束 ---\n")
+        combat.run()
 
-    result = combat.run() if combat is not None else None
-    print(game.settle(result))
+    outcome = game.finish_battle(combat)
+    print(outcome["settle_msg"])
+
+    if combat is not None:
+        print("--- 战斗日志 ---")
+        print_log(combat)
+        print("--- 战斗结束 ---")
 
     if combat is not None and interactive:
         cmd = ask("\n回车继续，输入 v 查看完整战斗日志 > ")
@@ -139,28 +145,27 @@ def battle_phase(game: Game, interactive: bool = True) -> None:
 
 
 def auto_play(game: Game) -> None:
-    """双方都由 AI 操作，快速跑完整局。用于自测与平衡验证。"""
-    while not game.is_over():
-        game.begin_round()
-        ai_take_turn(game.you, game.shop_you, game.rng)
-        ai_take_turn(game.enemy, game.shop_enemy, game.rng)
-        combat = game.fight()
-        result = combat.run() if combat is not None else None
-        msg = game.settle(result)
-        print(f"回合 {game.round:>2} | 你 {game.you.hp:>3} HP  电脑 {game.enemy.hp:>3} HP | {msg}")
-        game.round += 1
+    """双方都由 AI 运营，走 Game.play_auto_match 整局驱动器跑完（自测/平衡用）。"""
 
+    def on_round(g: Game, outcome: dict) -> None:
+        msg = outcome["settle_msg"]
+        print(
+            f"回合 {outcome['round']:>2} | 你 {g.you.hp:>3} HP"
+            f"  电脑 {g.enemy.hp:>3} HP | {msg}"
+        )
+
+    summary = game.play_auto_match(on_round=on_round)
     print(LINE)
     print(f" 对局结束：{game.winner()}")
-    print(f" 共 {game.round - 1} 回合")
+    print(f" 共 {summary['rounds']} 回合")
     print(LINE)
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description="自走棋 1v1 命令行对局")
     ap.add_argument("--seed", type=int, default=None, help="对局随机种子")
     ap.add_argument("--auto", action="store_true", help="双方均由 AI 操作，自动跑完整局")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     game = Game(seed=args.seed)
     if args.auto:
@@ -168,10 +173,9 @@ def main() -> None:
         return
 
     message = ""
+    game.begin_round()  # 第 1 回合发初始金币 + 刷商店
 
     while not game.is_over():
-        game.begin_round()
-
         # ---- 玩家运营 ----
         while True:
             render(game, message)
@@ -194,14 +198,16 @@ def main() -> None:
             else:
                 message = "无法识别的操作"
 
-        # ---- 战斗阶段 ----
+        # ---- 战斗阶段（AI 运营 + 开战 + 结算，全部在 Game 内完成）----
         battle_phase(game)
-        game.round += 1
+        if game.is_over() or game.round >= game.MAX_ROUND:
+            break
+        game.advance_round()
 
     clear()
     print(LINE)
     print(f" 对局结束：{game.winner()}")
-    print(f" 最终比分：你 {game.you.hp} HP  |  电脑 {game.enemy.hp} HP  （共 {game.round - 1} 回合）")
+    print(f" 最终比分：你 {game.you.hp} HP  |  电脑 {game.enemy.hp} HP  （共 {game.round} 回合）")
     print(LINE)
 
 

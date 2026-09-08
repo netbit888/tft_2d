@@ -6,11 +6,9 @@
 
 from __future__ import annotations
 
-import json
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+from .dataio import load_json as _load_json
 
 MAX_ITEMS_PER_PIECE = 3
 ITEM_BENCH_CAP = 12  # 玩家装备栏上限
@@ -19,15 +17,25 @@ ITEM_BENCH_CAP = 12  # 玩家装备栏上限
 DROP_CHANCE = 0.6
 FIRST_DROP_ROUND = 2
 
-_cache: dict | None = None
+# 特殊工具装备：只能通过 GUI 的成装自选台获得，不进属性/战斗结算。
+# 金制拆卸器：拖到棋子身上卸下其全部装备回装备栏，道具本身不消耗（不限次数）。
+SPECIAL_ITEMS = {
+    "gold_remover": "金制拆卸器",
+}
+GOLD_REMOVER = "gold_remover"
 
+
+def is_special_item(item_id: str) -> bool:
+    """是否特殊工具装备（金制拆卸器等），不是基础件也不是可合成的成装。"""
+    return item_id in SPECIAL_ITEMS
+
+
+def special_item_ids() -> list[str]:
+    return list(SPECIAL_ITEMS.keys())
 
 def load_items() -> dict:
-    global _cache
-    if _cache is None:
-        with open(DATA_DIR / "items.json", "r", encoding="utf-8") as f:
-            _cache = json.load(f)
-    return _cache
+    """读取 items.json（含 base / combine 两表），由 core.dataio 统一缓存。"""
+    return _load_json("items.json")
 
 
 def is_base_item(item_id: str) -> bool:
@@ -64,6 +72,9 @@ def item_name(item_id: str) -> str:
         return items["base"][item_id]["name"]
     if item_id in items["combine"]:
         return items["combine"][item_id]["name"]
+    special = SPECIAL_ITEMS.get(item_id)
+    if special is not None:
+        return special
     return item_id
 
 
@@ -90,31 +101,17 @@ class ItemInstance:
     """玩家持有的一件装备。
 
     item_id 可以是基础装备 id，也可以是合成公式 key（如 "sword+bow"）。
-    高级装备记录组成它的两个基础件，卖出时拆回基础件。
+    高级装备记录组成它的两个基础件，卖出时拆回基础件；凡 item_id 带 "+" 的
+    一律自动补全 components（合成公式与顺序无关，key 里就是原料），杜绝
+    因某个产出路径忘记记录而丢失"能拆回"的信息。
     """
 
     item_id: str
     components: tuple[str, str] | None = None  # 高级装备的两件基础件
 
-
-@dataclass
-class ItemBench:
-    """玩家的装备栏：存放待装备的基础/高级装备。"""
-
-    items: list[ItemInstance] = field(default_factory=list)
-
-    def add(self, item_id: str) -> bool:
-        if len(self.items) >= ITEM_BENCH_CAP:
-            return False
-        comp = (item_id.split("+")[0], item_id.split("+")[1]) if "+" in item_id else None
-        self.items.append(ItemInstance(item_id, components=comp))
-        return True
-
-    def remove(self, item: ItemInstance) -> bool:
-        if item in self.items:
-            self.items.remove(item)
-            return True
-        return False
+    def __post_init__(self) -> None:
+        if self.components is None and "+" in self.item_id:
+            self.components = tuple(self.item_id.split("+", 1))
 
 
 def piece_equip_stats(equip: list[ItemInstance]) -> dict:

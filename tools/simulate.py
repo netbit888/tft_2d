@@ -5,6 +5,10 @@
     python tools/simulate.py --seed 7        指定随机种子
     python tools/simulate.py --verbose       连移动事件也打印
     python tools/simulate.py --bench 1000    批量随机对局，输出棋子/羁绊胜率
+    python tools/simulate.py --mirror 200    镜像对称局自检（内核方向性偏差检测）
+    python tools/simulate.py --fullgame 20 --players 8
+                                            8 人局全自动整局仿真（走经济/运营/配对）
+    python tools/simulate.py --check         校验 data/*.json 数据完整性
 """
 
 from __future__ import annotations
@@ -12,6 +16,7 @@ from __future__ import annotations
 import argparse
 import random
 import sys
+from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -22,7 +27,8 @@ try:
 except Exception:
     pass
 
-from core import Combat, build_team, load_traits, load_units  # noqa: E402
+from core import Combat, Game, build_team, load_traits, load_units  # noqa: E402
+from core.dataio import check_data  # noqa: E402
 from core.events import LOG_DEFAULT, EV_MOVE, format_event  # noqa: E402
 from core.grid import AUTO_ROW_ORDER  # noqa: E402
 from core.traits import count_traits, describe  # noqa: E402
@@ -184,22 +190,106 @@ def run_mirror(n: int, seed: int, size: int = 4) -> None:
     print("判定：两侧差距应在 ±3% 内，否则内核存在方向性 bug")
 
 
-def main() -> None:
+def run_fullgame(matches: int, seed: int, players: int) -> None:
+    """整局全自动仿真：所有玩家由 AI 运营（含经济/升级/配对/装备掉落）。
+
+    输出：
+    - 名次分布（第 0 位玩家，便于看站位公平性）
+    - 平均回合数与平均存活人数（节奏是否健康）
+    - 全玩家场上出场占用最多的棋子（谁在主导环境）
+
+    对局的每一回合由 Game.play_auto_match 驱动——与 GUI/CLI 完全同源，
+    因此这里的统计能代表真实对局体验。
+    """
+    rng = random.Random(seed)
+    placements: Counter = Counter()  # 第 0 位玩家的名次分布
+    durations: list[int] = []
+    alive_rounds = 0  # “存活玩家回合”总次数（利用率分母）
+    fielded: Counter = Counter()  # 棋子被放在场上的总次数
+    rounds_total = 0
+
+    def placements_of(g: Game) -> list[int]:
+        """按血量(再按等级)从强到弱返回玩家下标。"""
+        return [
+            i for i, _ in sorted(enumerate(g.players), key=lambda t: (-t[1].hp, -t[1].level))
+        ]
+
+    for _ in range(matches):
+        game = Game(seed=rng.randint(0, 2**31 - 1), num_players=players)
+        last_rank = None
+
+        def collect(g: Game, outcome: dict) -> None:
+            nonlocal last_rank, alive_rounds
+            last_rank = placements_of(g)
+            alive_rounds += sum(1 for p in g.players if p.is_alive)
+            for p in g.players:
+                if p.is_alive:
+                    for pc in p.board:
+                        fielded[pc.tid] += 1
+
+        game.play_auto_match(on_round=collect)
+        rank = last_rank or placements_of(game)
+        placements[rank.index(0) + 1] += 1
+        durations.append(game.round)
+        rounds_total += game.round
+
+    names = {k: v.name for k, v in load_units().items()}
+    print(f"\n{players} 人整局全 AI 仿真 {matches} 场（种子 {seed}）")
+    print("-" * 56)
+    rank_str = " ".join(f"{i}名{placements.get(i, 0)}场" for i in range(1, players + 1))
+    print(f"第 0 位玩家名次分布：{rank_str}")
+    print(f"平均对局回合数：{sum(durations) / len(durations):.1f}")
+    print(f"平均每回合存活玩家：{alive_rounds / max(rounds_total, 1):.2f}")
+    print("-" * 56)
+    print(f"{'棋子':<6}{'场均携带数':>10}{'定位':>20}")
+    top = fielded.most_common(10)
+    denom = max(alive_rounds, 1)
+    for k, v in top:
+        print(f"{names.get(k, k):<6}{v / denom:>9.2f}    ~环境主导单位")
+    if fielded:
+        min_v = min(fielded.values())
+        low = [k for k, _ in fielded.items() if fielded[k] == min_v][:5]
+        for k in low:
+            print(f"{names.get(k, k):<6}{min_v / denom:>9.2f}    ~几乎无人使用")
+    print("-" * 56)
+
+
+def run_data_check() -> int:
+    """校验 data/*.json，有问题返回非 0 退出码（供脚本/CI 门禁）。"""
+    errors = check_data()
+    if not errors:
+        print("数据自检通过：traits / units / level / pool / items 均无问题。")
+        return 0
+    print(f"数据自检发现 {len(errors)} 个问题：")
+    for e in errors:
+        print("  - " + e)
+    return 1
+
+
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="自走棋战斗模拟器（M1 内核）")
     ap.add_argument("--seed", type=int, default=42, help="战斗随机种子")
     ap.add_argument("--verbose", action="store_true", help="打印移动事件")
     ap.add_argument("--bench", type=int, metavar="N", help="批量跑 N 场随机对局做平衡统计")
     ap.add_argument("--mirror", type=int, metavar="N", help="跑 N 场镜像对称局做内核自检")
+    ap.add_argument("--fullgame", type=int, metavar="N", help="跑 N 场整局全自动仿真（玩家也由 AI 运营）")
+    ap.add_argument("--players", type=int, default=8, help="整局仿真的玩家人数（默认 8）")
     ap.add_argument("--size", type=int, default=4, help="批量对局每方棋子数量")
-    args = ap.parse_args()
+    ap.add_argument("--check", action="store_true", help="校验 data/*.json 数据完整性")
+    args = ap.parse_args(argv)
 
-    if args.bench:
+    if args.check:
+        return run_data_check()
+    elif args.fullgame:
+        run_fullgame(args.fullgame, args.seed, args.players)
+    elif args.bench:
         run_bench(args.bench, args.seed, args.size)
     elif args.mirror:
         run_mirror(args.mirror, args.seed, args.size)
     else:
         run_single(DEFAULT_BLUE, DEFAULT_RED, args.seed, args.verbose)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

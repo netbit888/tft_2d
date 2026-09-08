@@ -1,29 +1,19 @@
 """数值加载与建队。
 
 所有数值来自 data/*.json，改平衡不需要动代码。
+磁盘 IO 与缓存统一收口在 core.dataio（唯一入口）；本模块负责把原始 JSON
+加工成游戏运行时需要的类型化结构（UnitTemplate / 队伍 Unit）。
 """
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 from . import traits as trait_mod
+from .dataio import DATA_DIR, load_json as _load_json  # noqa: F401  DATA_DIR 保留兼容导出
 from .items import item_effect, piece_equip_stats
 from .models import AbilityDef, Unit, UnitTemplate
 from .stats import compute_stats
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-
-_cache: dict[str, dict] = {}
 _units_cache: dict[str, UnitTemplate] | None = None
-
-
-def _load_json(name: str) -> dict | list:
-    if name not in _cache:
-        with open(DATA_DIR / name, "r", encoding="utf-8") as f:
-            _cache[name] = json.load(f)
-    return _cache[name]
 
 
 def load_traits() -> dict:

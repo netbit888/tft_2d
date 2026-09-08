@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pygame
 
-from core.items import item_name, load_items
+from core.items import is_special_item, item_name, load_items
 
 from . import theme
 from .assets import render, text
@@ -31,15 +31,20 @@ def item_slot_at(pos) -> int | None:
 
 
 def item_color(item_id: str) -> tuple:
-    """高级装备用金色描边，基础装备用灰白。"""
-    if "+" in item_id:
+    """高级装备 / 特殊工具（金制拆卸器）用金色描边，基础装备用灰白。"""
+    if "+" in item_id or is_special_item(item_id):
         return theme.GOLD
     return theme.BORDER
 
 
 def draw_item_icon(surface: pygame.Surface, rect: pygame.Rect, item_id: str, dim: bool = False) -> None:
     is_combined = "+" in item_id
-    base = theme.PANEL_LIGHT if not is_combined else (58, 46, 24)
+    if is_special_item(item_id):
+        base = (74, 54, 20)  # 特殊工具：亮金底色
+    elif is_combined:
+        base = (58, 46, 24)
+    else:
+        base = theme.PANEL_LIGHT
     edge = item_color(item_id)
     panel(surface, rect, base, radius=8, border=edge, width=max(2, 2 * theme.S))
 

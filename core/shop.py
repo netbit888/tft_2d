@@ -128,29 +128,38 @@ def sell_piece(player: Player, piece: Piece) -> str:
     if player.pool is not None:
         player.pool.give(piece.tid, copies)
 
-    # 装备回到装备栏（高级装备拆回两件基础件）；每件都保证有去处，绝不凭空消失
-    from .items import ItemInstance, is_base_item
+    # 装备回到装备栏：基础件直接回收，高级装备拆回两件基础件；
+    # 拆回/回收的装备一律插入栏首，保证出现在可见格（3x4=12 格），不因挤到第 13 格而“消失”。
+    from .items import ItemInstance, is_base_item, is_special_item, item_name
 
+    returned: list[str] = []
+    recovered: list[ItemInstance] = []
     for it in piece.equip:
-        if is_base_item(it.item_id):
-            player.item_bench.append(it)
+        if is_base_item(it.item_id) or is_special_item(it.item_id):
+            # 基础装备原样回收；特殊工具（理论上不会装在棋子身上）也整件回收，不做任何拆解
+            recovered.append(it)
+            returned.append(item_name(it.item_id))
             continue
-        # 高级装备优先按记录的 components 拆回基础件；
-        # components 缺失但 item_id 是 "a+b" 公式键时也能现场拆出（覆盖存档/其它合成路径）。
+        # components 由 ItemInstance 自动补全；item_id 带 "+" 时一定有两件基础件
         comps = it.components
-        if not comps and "+" in it.item_id:
-            comps = tuple(it.item_id.split("+", 1))
         if comps:
             for c in comps:
-                player.item_bench.append(ItemInstance(c))
+                recovered.append(ItemInstance(c))
+                returned.append(item_name(c))
         else:
             # 实在无法拆分：整件保留到装备栏，总好过丢失
-            player.item_bench.append(it)
+            recovered.append(it)
+            returned.append(item_name(it.item_id))
     piece.equip.clear()
+    if recovered:
+        player.item_bench[0:0] = recovered
     player.promote_from_bench()  # 卖出场上棋子后备战席自动补位
 
     star = f"{piece.star}星" if piece.star > 1 else ""
-    return f"卖出 {unit_name(piece.tid)}{star}（+{gold} 金，卡池 +{copies}）"
+    msg = f"卖出 {unit_name(piece.tid)}{star}（+{gold} 金，卡池 +{copies}）"
+    if returned:
+        msg += f"；装备已回栏：{'、'.join(returned)}"
+    return msg
 
 
 def sell(player: Player, index: int) -> str:

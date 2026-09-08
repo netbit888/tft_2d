@@ -15,7 +15,8 @@
 - **确定性随机**：`--seed` 可复现同一局，便于调平衡与排查。
 - **程序化生成的 BGM 与音效**：部署/布阵与开战两段循环 BGM、回合胜/负小段，
   以及买卖/合成/刷新/升星等 UI 音效；无音频设备自动静音降级，`M` 键随时静音。
-- **两套入口 + 两套自检工具**（见下）。
+- **统一启动器 + 可安装工程化**：`python launcher.py gui / play / sim` 一条命令访问全部玩法与工具；
+  `pyproject.toml` 支持 `pip install -e .` 后直接用 `tft2d`、`tft2d-gui`、`tft2d-sim` 命令启动（见下）。
 
 ## 环境要求
 
@@ -37,6 +38,27 @@ Windows 下双击即可，脚本会自动补装依赖：
 | `start_gui.bat` | 图形界面 1v1 对战 |
 | `start_gui_8p.bat` | 图形界面 8 人局 |
 | `run.bat` | 菜单：图形界面 / 命令行对局 / 自动演示 / 平衡统计 / 内核自检 |
+
+> 三个脚本都是调用统一启动器 `python launcher.py <子命令>`，子命令会原样转发参数，
+> 因此「双击 .bat」与「手动命令行」行为完全一致。
+
+### 统一启动器 `launcher.py`
+
+```bash
+python launcher.py gui [--seed N] [--players 1|8] [--scale 1|2] [--no-log]   # 图形界面
+python launcher.py play [--seed N] [--auto]                                  # 命令行 1v1（无 pygame）
+python launcher.py sim [--seed N] [--check|--bench N|--mirror N|--fullgame N] # 工具：数据自检/平衡/镜像/整局仿真
+```
+
+也可以直接运行各入口（`app.py` / `play.py` / `tools/simulate.py`），效果相同。
+
+### 安装为命令（可选）
+
+想全局使用 `tft2d` 命令，或为后续打包做准备：
+
+```bash
+pip install -e ".[dev]"     # 可编辑安装（含 pytest），之后可直接敲 tft2d / tft2d-gui / tft2d-play / tft2d-sim
+```
 
 也可以直接用命令行：
 
@@ -97,15 +119,23 @@ python play.py --seed 7 --auto
 
 ## 战斗内核模拟工具
 
+统一启动器与直接调用等价（`python launcher.py sim …` 与 `python tools/simulate.py …`）：
+
 ```bash
+# 校验 data/*.json 数据完整性（0 = 通过，供 CI/脚本门禁）
+python launcher.py sim --check
+
 # 跑一场单局（默认双方各 4 枚随机镜像棋子）
-python tools/simulate.py
+python launcher.py sim
 
 # 批量 N 场随机对局做平衡统计（蓝/红胜率 + 平均时长）
-python tools/simulate.py --bench 3000
+python launcher.py sim --bench 3000
 
 # 批量 N 场镜像对称局做内核自检（两侧胜率差应在 ±3% 内）
-python tools/simulate.py --mirror 3000
+python launcher.py sim --mirror 3000
+
+# 整局全自动仿真：8 人局所有玩家由 AI 运营，输出名次分布/节奏/环境棋子占用
+python launcher.py sim --fullgame 20 --players 8
 ```
 
 ## 音频与音效
@@ -129,18 +159,18 @@ python tools/gen_audio.py bgm_battle sfx_combine        # 只重建指定文件
 
 ```
 tft_2d/
-├─ app.py                  # 图形界面入口（pygame-ce）
-├─ play.py                 # 命令行对局入口（无第三方依赖）
+├─ launcher.py             # 统一启动器：gui / play / sim 一条命令入口
+├─ pyproject.toml          # 工程元数据：依赖 / 入口命令（pip install 后可用 tft2d 等）
+├─ app.py / play.py        # 图形界面入口、命令行对局入口（也可被 launcher 调用）
 ├─ requirements.txt
-├─ start_gui.bat           # Windows 快捷启动（1v1）
-├─ start_gui_8p.bat        # Windows 快捷启动（8 人局）
-├─ run.bat                 # Windows 菜单启动器
+├─ start_gui.bat / start_gui_8p.bat / run.bat   # Windows 快捷启动（1v1 / 8 人局 / 菜单）
 ├─ core/                   # ── 核心规则层：纯 Python，零第三方依赖 ──
-│  ├─ game.py              #   对局管理：回合、1v1/8 人局配对、结算、扣血、胜负
+│  ├─ game.py              #   单一真源驱动器：run_ai_ops / start_battle / finish_battle / advance_round
 │  ├─ combat.py            #   战斗内核：行动序列、寻路/普攻/技能/事件回放
 │  ├─ player.py            #   玩家：金币、血量、人口、升星、备战席
 │  ├─ shop.py / pool.py    #   商店刷新 / 共享卡池抽牌
 │  ├─ loader.py            #   加载 units/traits/items 数据
+│  ├─ dataio.py            #   统一 JSON 读取缓存 + 数据自检 check_data()
 │  ├─ traits.py / items.py #   羁绊统计、装备合成与效果
 │  ├─ grid.py              #   棋盘网格常量与行带（8 行 / 双方各 4 行）
 │  ├─ deploy.py            #   摆位：手动落点校验、自动补位
@@ -148,14 +178,18 @@ tft_2d/
 │  ├─ stats.py / rng.py    #   属性计算 / 可复现随机
 │  └─ ai.py                #   AI 运营（买/卖/升星/穿装）
 ├─ render/                 # ── 图形界面层（pygame-ce）──
-│  ├─ app.py               #   主循环、阶段管理与全部交互
+│  ├─ app.py               #   App 骨架：主循环、战斗回放状态机、draw() 编排
+│  ├─ app_state.py         #   AppStateMixin：部署交互（视角/事件/自选台/拖拽/买卖）
+│  ├─ app_draw.py          #   AppDrawMixin：全部绘制（HUD/棋盘/悬停层/特效/结算）
 │  ├─ theme.py             #   布局/配色/字体主题（蜂窝棋盘尺寸在此推导）
 │  ├─ board_view.py        #   六边形棋盘绘制与 (行列↔屏幕) 坐标换算
 │  ├─ battle_view.py       #   实时战斗回放（平滑移动、弹道、血条、飘字）
 │  ├─ shop_view.py         #   商店卡 / 备战席绘制
+│  ├─ armory_view.py       #   成装自选台（F2）
 │  ├─ item_view.py         #   装备栏
 │  ├─ info.py              #   各类详情 tooltip 内容与绘制
 │  ├─ assets.py            #   文字渲染与贴图缓存
+│  ├─ audio.py             #   背景乐/UI 音效（无设备自动降级静音）
 │  └─ widgets.py           #   按钮/进度条/面板等小部件
 ├─ data/                   # 全部数值配置（改平衡只需动这里）
 │  ├─ units.json           #   50 枚棋子：费用、属性、羁绊、技能
@@ -165,8 +199,9 @@ tft_2d/
 │  └─ level.json           #   人口经验曲线 + 各费用刷新概率
 ├─ assets/
 │  └─ audio/               #   程序化生成的 BGM / 音效 WAV（tools/gen_audio.py 重建）
+├─ tests/                  # pytest 回归：数据完整性 / 驱动器确定性 / 内核不变量 / GUI 冒烟
 └─ tools/
-   ├─ simulate.py          # 战斗模拟：单局 / --bench 平衡 / --mirror 自检
+   ├─ simulate.py          # 战斗模拟：单局 / --bench 平衡 / --mirror 自检 / --fullgame 整局仿真 / --check 数据自检
    └─ gen_audio.py         # 纯标准库合成全部音频资源（见“音频与音效”）
 ```
 

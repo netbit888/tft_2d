@@ -6,11 +6,10 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from .items import ItemInstance
+from .dataio import load_json
+from .items import MAX_ITEMS_PER_PIECE, ItemInstance
 from .loader import load_traits, load_units
 from .pool import Pool
 
@@ -18,54 +17,45 @@ MAX_BENCH = 8  # 备战席容量
 MAX_STAR = 3  # 星级上限
 MAX_LEVEL = 9  # 等级上限
 
-_LEVEL_DATA: dict | None = None
-_LEVELS: list[dict] = []
 
-
-def _load_levels() -> list[dict]:
-    global _LEVEL_DATA, _LEVELS
-    if _LEVEL_DATA is None:
-        path = Path(__file__).resolve().parent.parent / "data" / "level.json"
-        with open(path, "r", encoding="utf-8") as f:
-            _LEVEL_DATA = json.load(f)
-        _LEVELS = _LEVEL_DATA["levels"]
-    return _LEVELS
+def _level_config() -> dict:
+    """人口/经验曲线（level.json），由 core.dataio 统一缓存。"""
+    return load_json("level.json")
 
 
 def board_cap_for_level(level: int) -> int:
     """某等级的人口上限。"""
-    for row in _load_levels():
+    levels = _level_config()["levels"]
+    for row in levels:
         if row["level"] == level:
             return int(row["board_cap"])
-    return int(_LEVELS[-1]["board_cap"])
+    return int(levels[-1]["board_cap"])
 
 
 def xp_needed_for_level(level: int) -> int:
     """升到某级需要的经验（该级门槛）。"""
-    for row in _load_levels():
+    levels = _level_config()["levels"]
+    for row in levels:
         if row["level"] == level:
             return int(row["xp_needed"])
-    return int(_LEVELS[-1]["xp_needed"])
+    return int(levels[-1]["xp_needed"])
 
 
 def upgrade_cost() -> int:
-    _load_levels()
-    return int(_LEVEL_DATA["upgrade_cost"])
+    return int(_level_config()["upgrade_cost"])
 
 
 def upgrade_xp() -> int:
-    _load_levels()
-    return int(_LEVEL_DATA["upgrade_xp"])
+    return int(_level_config()["upgrade_xp"])
 
 
 def odds_for_level(level: int) -> dict[int, int]:
     """某等级各费用棋子的刷新概率（百分比），返回 {费用: 百分比}。"""
-    _load_levels()
-    raw = _LEVEL_DATA.get("odds", {}).get(str(level))
+    cfg = _level_config()
+    raw = cfg.get("odds", {}).get(str(level))
     if raw is None:
-        raw = _LEVEL_DATA.get("odds", {}).get(str(MAX_LEVEL), [100, 0, 0])
-    out = {i + 1: int(v) for i, v in enumerate(raw)}
-    return out
+        raw = cfg.get("odds", {}).get(str(MAX_LEVEL), [100, 0, 0])
+    return {i + 1: int(v) for i, v in enumerate(raw)}
 
 
 @dataclass(eq=False)
@@ -139,11 +129,6 @@ def piece_label(p: Piece) -> str:
     return f"{tpl.name}{star}({traits})"
 
 
-def board_tids(player: Player) -> list[str]:
-    """场上棋子的 id 列表，用于统计羁绊。"""
-    return [p.tid for p in player.board]
-
-
 def buy_xp(player: Player) -> str:
     """花金币升级（+4 经验 / 4 金币），返回提示文案。"""
     if player.level >= MAX_LEVEL:
@@ -183,8 +168,6 @@ def try_upgrade(player: Player) -> list[str]:
         tid, star, three = target
         anchor = next((p for p in three if p.pos is not None), None)
         # 升星前先收集三张棋子的装备，避免合成后凭空蒸发
-        from .items import MAX_ITEMS_PER_PIECE
-
         carry = [it for p in three for it in p.equip]
         for p in three:
             p.equip.clear()

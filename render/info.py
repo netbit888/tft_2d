@@ -13,7 +13,14 @@ from __future__ import annotations
 
 import pygame
 
-from core.items import combine_key, item_effect, item_name, item_stats, piece_equip_stats
+from core.items import (
+    combine_key,
+    is_special_item,
+    item_effect,
+    item_name,
+    item_stats,
+    piece_equip_stats,
+)
 from core.loader import load_traits, load_units
 from core.models import MANA_ON_TAKE_HIT, MANA_PER_ATTACK
 from core.stats import compute_stats
@@ -217,6 +224,14 @@ def unit_records(player, piece) -> list:
 
 def item_records(item_id: str, have: dict[str, int] | None = None) -> list:
     """装备详情。have 是当前装备栏各基础装备的数量，用于只列出'现在凑得齐'的配方。"""
+    if is_special_item(item_id):
+        return [
+            (item_name(item_id), theme.FS_NORMAL, theme.GOLD),
+            ("特殊工具 · 非装备，无属性加成", theme.FS_TINY, theme.TEXT_DIM),
+            ("拖到棋子身上：卸下其全部装备回装备栏", theme.FS_TINY, theme.GOLD),
+            ("道具不消耗，可无限次使用", theme.FS_TINY, theme.TEXT_DIM),
+        ]
+
     base = item_stats(item_id)
     advanced = "+" in item_id
     records: list = [

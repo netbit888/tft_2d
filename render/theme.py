@@ -133,6 +133,15 @@ def _layout(s: int) -> dict:
     fight_y = shop_y + shop_card_h - 52 * s
     fight_h = 52 * s
 
+    # ---------- 成装自选台（部署期 F2 打开） ----------
+    armory_cols = 7
+    armory_cell = int(84 * s)
+    armory_step_x = int(96 * s)
+    armory_step_y = int(92 * s)
+    armory_pad = int(20 * s)
+    armory_title_h = int(46 * s)
+    armory_foot_h = int(52 * s)
+
     # ---------- HP 血条（备战席上方一行） ----------
     hp_bar_y = bench_y - 30 * s
     hp_bar_w = 150 * s
@@ -276,6 +285,14 @@ def _layout(s: int) -> dict:
         "ITEM_BENCH_H": item_h,
         "ITEM_BENCH_X": item_x,
         "ITEM_BENCH_Y": item_y,
+        # ---------- 成装自选台（F2） ----------
+        "ARMORY_COLS": armory_cols,
+        "ARMORY_CELL": armory_cell,
+        "ARMORY_STEP_X": armory_step_x,
+        "ARMORY_STEP_Y": armory_step_y,
+        "ARMORY_PAD": armory_pad,
+        "ARMORY_TITLE_H": armory_title_h,
+        "ARMORY_FOOT_H": armory_foot_h,
         # ---------- 8 人战况面板 ----------
         "ROSTER_W": roster_w,
         "ROSTER_X": roster_x,

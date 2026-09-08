@@ -31,7 +31,7 @@ if errorlevel 1 (
 )
 
 rem ---------- 启动 8 人局（可追加参数，如 --seed 7 --scale 2） ----------
-%PY% app.py --players 8 %*
+%PY% launcher.py gui --players 8 %*
 
 if errorlevel 1 (
     echo.

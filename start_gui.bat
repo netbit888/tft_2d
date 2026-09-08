@@ -31,7 +31,7 @@ if errorlevel 1 (
 )
 
 rem ---------- 启动图形界面（可追加参数，如 --seed 7） ----------
-%PY% app.py %*
+%PY% launcher.py gui %*
 
 if errorlevel 1 (
     echo.
