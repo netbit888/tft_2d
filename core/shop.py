@@ -128,29 +128,33 @@ def sell_piece(player: Player, piece: Piece) -> str:
     if player.pool is not None:
         player.pool.give(piece.tid, copies)
 
-    # 装备回到装备栏（高级装备拆回两件基础件）
-    from .items import is_base_item
+    # 装备回到装备栏（高级装备拆回两件基础件）；每件都保证有去处，绝不凭空消失
+    from .items import ItemInstance, is_base_item
 
     for it in piece.equip:
         if is_base_item(it.item_id):
             player.item_bench.append(it)
-        elif it.components:
-            from .items import ItemInstance
-
-            for c in it.components:
+            continue
+        # 高级装备优先按记录的 components 拆回基础件；
+        # components 缺失但 item_id 是 "a+b" 公式键时也能现场拆出（覆盖存档/其它合成路径）。
+        comps = it.components
+        if not comps and "+" in it.item_id:
+            comps = tuple(it.item_id.split("+", 1))
+        if comps:
+            for c in comps:
                 player.item_bench.append(ItemInstance(c))
+        else:
+            # 实在无法拆分：整件保留到装备栏，总好过丢失
+            player.item_bench.append(it)
     piece.equip.clear()
+    player.promote_from_bench()  # 卖出场上棋子后备战席自动补位
 
     star = f"{piece.star}星" if piece.star > 1 else ""
     return f"卖出 {unit_name(piece.tid)}{star}（+{gold} 金，卡池 +{copies}）"
 
 
 def sell(player: Player, index: int) -> str:
-    """卖出场上第 index 个棋子（从 1 开始计），全额返还。"""
+    """卖出场上第 index 个棋子（从 1 开始计），与 GUI 走同一回收逻辑。"""
     if not (1 <= index <= len(player.board)):
         return "没有这个棋子"
-    piece = player.board.pop(index - 1)
-    gold = unit_cost(piece.tid)
-    player.gold += gold
-    player.promote_from_bench()  # 备战席自动补位
-    return f"卖出 {unit_name(piece.tid)}（+{gold} 金）"
+    return sell_piece(player, player.board[index - 1])

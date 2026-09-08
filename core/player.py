@@ -182,13 +182,24 @@ def try_upgrade(player: Player) -> list[str]:
 
         tid, star, three = target
         anchor = next((p for p in three if p.pos is not None), None)
+        # 升星前先收集三张棋子的装备，避免合成后凭空蒸发
+        from .items import MAX_ITEMS_PER_PIECE
+
+        carry = [it for p in three for it in p.equip]
         for p in three:
+            p.equip.clear()
             if p in player.board:
                 player.board.remove(p)
             elif p in player.bench:
                 player.bench.remove(p)
 
         merged = Piece(tid, star + 1)
+        # 优先挂到新棋子上（单件上限 MAX_ITEMS_PER_PIECE），多余的放回装备栏。
+        # 注意 item_bench 是 list，没有 .add()；直接 append 且不设上限，
+        # 装备栏即使暂时放满也绝不丢装备（超出部分会在使用/合成腾出空位后重新可见）。
+        merged.equip = carry[:MAX_ITEMS_PER_PIECE]
+        for it in carry[MAX_ITEMS_PER_PIECE:]:
+            player.item_bench.append(it)
         if anchor is not None:
             merged.pos = anchor.pos
         # 合成腾出了空位，优先留在场上；只有场上满员且备战席还有位置时才回备战席

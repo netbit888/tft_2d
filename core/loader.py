@@ -124,9 +124,5 @@ def build_team(placements: list[dict], team: str) -> list[Unit]:
         u.damage_amp = s["damage_amp"]
         u.max_mana = max(0.0, tpl.max_mana - item_mods.get("mana_flat", 0))
         u.mana = min(u.mana, u.max_mana)
-        # 装备特效附加
-        if "lifesteal" in u.effects:
-            u.lifesteal = 0.25
-        if "spell_vamp" in u.effects:
-            u.lifesteal = 0.25
+        # 装备特效统一由 combat 层消费：吸血/法吸在普攻/技能入口各自结算
     return units

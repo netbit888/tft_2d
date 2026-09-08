@@ -345,6 +345,19 @@ class App:
                 if iidx is not None and iidx < len(self.game.you.item_bench):
                     self.start_item_drag(iidx)
                     return
+                # 棋子身上的装备徽章：直接拖起（可换装 / 拖回装备栏卸下 / 参与合成）
+                src = self._piece_equip_drag_source(event.pos)
+                if src is not None:
+                    piece, k = src
+                    self.drag = {
+                        "kind": "item",
+                        "item": piece.equip[k],
+                        "src": "piece",
+                        "piece": piece,
+                        "slot": k,
+                        "mouse": event.pos,
+                    }
+                    return
                 # 不立即拖拽：记下起点，原地松开判定为单击棋子；移动超过阈值才转拖拽
                 self._press = {"pos": event.pos}
             elif event.button == 3:  # 右键卖出
@@ -430,58 +443,116 @@ class App:
     def start_item_drag(self, index: int) -> None:
         """从装备栏拖起一件装备。"""
         it = self.game.you.item_bench[index]
-        self.drag = {"kind": "item", "item": it, "slot": index, "mouse": (0, 0)}
+        self.drag = {
+            "kind": "item",
+            "item": it,
+            "src": "bench",
+            "slot": index,
+            "mouse": (0, 0),
+        }
+
+    def _equip_badge_at(self, pos, rect: pygame.Rect, n: int) -> int | None:
+        """命中棋子装备徽章的序号（几何与棋盘/备战席绘制一致）；没命中返回 None。"""
+        n = min(n, 3)
+        gap = max(10, int(12 * theme.S))
+        start_x = rect.centerx - (n - 1) * gap // 2
+        y = rect.bottom - max(4, int(5 * theme.S))
+        half = max(8, int(8 * theme.S))
+        for k in range(n):
+            cx = start_x + k * gap
+            if abs(pos[0] - cx) <= half and abs(pos[1] - y) <= half:
+                return k
+        return None
+
+    def _piece_equip_drag_source(self, pos):
+        """命中己方棋子身上的装备徽章：返回 (piece, equip_index)，否则 None。"""
+        you = self.game.you
+        cell = cell_at(pos)
+        if cell is not None:
+            p = self.piece_at_board(*cell)
+            if p is not None and p.equip:
+                k = self._equip_badge_at(pos, cell_rect(*cell), len(p.equip))
+                if k is not None:
+                    return p, k
+        idx = bench_slot_at(pos)
+        if idx is not None and idx < len(you.bench):
+            p = you.bench[idx]
+            if p.equip:
+                k = self._equip_badge_at(pos, bench_slot_rect(idx), len(p.equip))
+                if k is not None:
+                    return p, k
+        return None
 
     def drop_item(self, pos) -> None:
-        """放下装备：到棋子=装备，到装备栏=合成/重排，否则放回。"""
+        """放下装备：到棋子=装备/换装，到装备栏=合成/卸下，否则放回原处。"""
         drag, self.drag = self.drag, None
         you = self.game.you
         item = drag["item"]
+        src = drag.get("src", "bench")
+        src_piece = drag.get("piece")
 
-        # 拖到棋盘/备战席的棋子身上 = 装备
+        def take_out() -> None:
+            """从拖拽源移出装备（装备栏 / 棋子身上）。"""
+            if src == "bench":
+                you.item_bench.remove(item)
+            elif src_piece is not None and item in src_piece.equip:
+                src_piece.equip.remove(item)
+
+        # 拖到棋盘/备战席的棋子身上 = 装备 / 换装
         target = self._piece_at_screen(pos)
         if target is not None:
+            if target is src_piece:
+                self.message = "已放回"
+                return
             if len(target.equip) >= MAX_ITEMS_PER_PIECE:
                 self.message = f"{item_name(item.item_id)} 无法装备：已满 {MAX_ITEMS_PER_PIECE} 件"
                 self.audio.sfx.play("error")
                 return
-            you.item_bench.remove(item)
+            take_out()
             target.equip.append(item)
-            self.message = f"{item_name(item.item_id)} 已装备"
+            if src == "piece":
+                self.message = f"{item_name(item.item_id)} 已换装"
+            else:
+                self.message = f"{item_name(item.item_id)} 已装备"
             self.audio.sfx.play("equip")
             return
 
-        # 拖到装备栏另一个格子 = 合成（两件基础装备）
+        # 拖到装备栏：空格=卸下/放回，有装备的格子=尝试合成
+        from core.items import ITEM_BENCH_CAP, ItemInstance
+
         dest = item_slot_at(pos)
-        if dest is not None and dest < len(you.item_bench):
-            other = you.item_bench[dest]
-            if other is item:
+        if dest is not None and dest < ITEM_BENCH_CAP:
+            if dest < len(you.item_bench):
+                other = you.item_bench[dest]
+                if other is item:
+                    return
+                key = combined_item_id(item.item_id, other.item_id)
+                if key:
+                    take_out()
+                    you.item_bench.remove(other)
+                    # 记录两件基础件：卖出装备的棋子时才能拆回（否则基础件凭空消失）
+                    parts = tuple(key.split("+", 1))
+                    you.item_bench.append(ItemInstance(key, components=parts))
+                    self.message = f"合成 {item_name(key)}！"
+                    self.audio.sfx.play("combine")
+                    self.fx.append(
+                        {
+                            "kind": "star",
+                            "pos": (theme.ITEM_BENCH_X + theme.ITEM_BENCH_W // 2, theme.ITEM_BENCH_Y + 30 * theme.S),
+                            "cost": 3,
+                            "life": 0.7,
+                            "total": 0.7,
+                        }
+                    )
+                    return
+                self.message = "无法合成，已放回"
                 return
-            key = combined_item_id(item.item_id, other.item_id)
-            if key:
-                you.item_bench.remove(item)
-                you.item_bench.remove(other)
-                from core.items import ItemInstance
-
-                # 记录两件基础件：卖出装备的棋子时才能拆回（否则基础件凭空消失）
-                parts = tuple(key.split("+", 1))
-                you.item_bench.append(ItemInstance(key, components=parts))
-                self.message = f"合成 {item_name(key)}！"
-                self.audio.sfx.play("combine")
-                self.fx.append(
-                    {
-                        "kind": "star",
-                        "pos": (theme.ITEM_BENCH_X + theme.ITEM_BENCH_W // 2, theme.ITEM_BENCH_Y + 30 * theme.S),
-                        "cost": 3,
-                        "life": 0.7,
-                        "total": 0.7,
-                    }
-                )
+            # 空装备栏格：从棋子身上卸下放入装备栏
+            if src == "piece":
+                take_out()
+                you.item_bench.append(item)
+                self.message = f"{item_name(item.item_id)} 已卸下放入装备栏"
                 return
-            # 不可合成：交换位置
-            self.message = "无法合成，已放回"
-            return
-
         self.message = "放回了原处"
 
     def _piece_at_screen(self, pos):

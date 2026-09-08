@@ -86,6 +86,15 @@ class Unit:
     attack_timer: float = 0.0
     target_uid: int | None = None
 
+    # 装备特效运行期状态（每场战斗由 Combat 读写，构建时保持默认）
+    as_stack: float = 0.0  # 羊刀叠加攻速（乘数累积）
+    three_t: float = 0.0   # 三相之力：施法后普攻强化剩余秒数
+    burn_t: float = 0.0    # 燃烧剩余秒数
+    burn_dps: float = 0.0  # 燃烧每秒伤害（由施加者写入）
+    burn_src: int = 0      # 燃烧施加者 uid
+    gw_t: float = 0.0      # 重伤剩余秒数，期间受治疗/吸血减半
+    revived: bool = False  # 守护天使是否已消耗
+
     @property
     def pos(self) -> tuple[float, float]:
         return (self.x, self.y)

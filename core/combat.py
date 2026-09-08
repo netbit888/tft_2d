@@ -33,6 +33,33 @@ TICK_RATE = 20
 DT = 1.0 / TICK_RATE
 DEFAULT_MAX_TICKS = TICK_RATE * 45  # 45 秒上限，超时按剩余血量判胜负
 
+# ---------- 装备特效参数 ----------
+# data/items.json 只声明 effect 名，具体数值集中在此，方便统一调平衡。
+CRIT_DMG_BONUS = 0.25        # crit_damage：暴击伤害 +0.25（暴击 1.5 → 1.75）
+ARMOR_PEN_PCT = 0.30         # armor_pen：普攻无视目标 30% 护甲
+MAGIC_RESIST_PCT = 0.30      # magic_resist：受到的魔法伤害 -30%
+LIFESTEAL_PCT = 0.25         # lifesteal：普攻吸血比例
+SPELL_VAMP_PCT = 0.25        # spell_vamp：技能吸血比例
+CLEAVE_PCT = 0.50            # aoe_cleave：普攻对目标邻格溅射 50% 伤害
+THORNS_PCT = 0.20            # thorns：被普攻命中时反弹已结算伤害的 20%
+MULTI_SHOT_PCT = 0.40        # multi_shot：分裂弓副目标伤害比例
+GW_DUR = 6.0                 # grievous_wounds：重伤持续秒数
+GW_REDUCE = 0.50             # 重伤期间治疗/吸血 -50%
+BURN_DUR = 3.0               # burn：目标燃烧持续秒数
+BURN_AD_PCT = 0.15           # 燃烧秒伤 = 佩戴者攻击力 * 15%
+REGEN_PCT = 0.02             # regen：每秒回复最大生命 2%
+REVIVE_HP_PCT = 0.50         # revive：复活时回复 50% 最大生命
+RAMP_STEP = 0.08             # ramping_as：羊刀每次命中叠 +8% 攻速
+RAMP_CAP = 0.64              # 羊刀攻速叠加上限 +64%
+ON_CAST_AD = 0.20            # on_cast_buff：三相施法后强化期内普攻 +20%
+ON_CAST_DUR = 6.0            # 三相强化持续秒数
+MANA_AP_STEP = 15.0          # mana_ap：大天使每次施法永久 +15 法强
+GIANT_SLAYER_RATIO = 1.5     # giant_slayer：目标最大生命 ≥ 自身 1.5 倍触发
+GIANT_SLAYER_PCT = 0.25      # 对高生命目标额外伤害 +25%
+AP_AMP_PCT = 0.35            # ap_amp：灭世者的死亡之帽，施法时法强 +35%
+SLOW_AURA_RANGE = 2          # slow_aura：冰心减速光环半径（六边形格）
+SLOW_AURA_REDUCE = 0.25      # 光环内敌人攻速 -25%
+
 
 class Combat:
     def __init__(
@@ -99,7 +126,10 @@ class Combat:
                     # 目标正滑向预定格：站在射程内等它落格，避免“打半路”的错位
                     continue
                 u.attack_timer += DT
-                interval = 1.0 / max(u.attack_speed, 0.05)
+                # 羊刀叠攻速：interval 按累积攻速计算
+                interval = 1.0 / max(u.attack_speed * (1.0 + u.as_stack), 0.05)
+                if self._slowed_by_aura(u):  # 冰心减速光环
+                    interval /= 1.0 - SLOW_AURA_REDUCE
                 if u.attack_timer >= interval:
                     u.attack_timer -= interval
                     attacks.append((u, target))
@@ -122,6 +152,7 @@ class Combat:
             self._attack(u, target)
 
         if not self.finished:
+            self._apply_status()
             self._check_end()
 
     def alive_units(self, team: str | None = None) -> list[Unit]:
@@ -258,21 +289,58 @@ class Combat:
         )
 
         raw = u.ad
+        if u.three_t > 0:  # 三相之力：施法后普攻强化
+            raw *= 1.0 + ON_CAST_AD
         crit = self.rng.random() < u.crit_chance
         if crit:
-            raw *= CRIT_MULTIPLIER
-        self._deal_damage(u, target, raw, "physical", crit=crit)
+            # 无尽之刃：暴击伤害提高（叠加到倍率上）
+            mult = CRIT_MULTIPLIER + (CRIT_DMG_BONUS if "crit_damage" in u.effects else 0.0)
+            raw *= mult
+        dealt = self._deal_damage(u, target, raw, "physical", crit=crit)
 
-        # 本次攻击已在决策阶段确定，即使攻击者本 tick 内阵亡也照常结算（可同归于尽）
         u.mana = min(u.max_mana, u.mana + MANA_PER_ATTACK)
+
+        # 后续触发类特效只在攻击者仍存活时结算（可能已被荆棘反弹致死）
+        if u.alive:
+            # 饮血剑：普攻吸血（吸血量受目标/自己身上的重伤削减）
+            if dealt > 0 and "lifesteal" in u.effects:
+                self._heal(u, dealt * LIFESTEAL_PCT)
+            # 日炎斗篷：命中使目标持续燃烧（秒伤 = 佩戴者攻击力 * 15%）
+            if target.alive and "burn" in u.effects:
+                target.burn_t = BURN_DUR
+                target.burn_dps = max(target.burn_dps, u.ad * BURN_AD_PCT)
+                target.burn_src = u.uid
+            # 分裂弓：追加攻击射程内最近的另一个敌人
+            if "multi_shot" in u.effects:
+                second = self._pick_split_target(u, target)
+                if second is not None:
+                    self._deal_damage(u, second, raw * MULTI_SHOT_PCT, "physical")
+            # 巨型九头蛇：对目标邻格的敌人溅射
+            if "aoe_cleave" in u.effects:
+                for nb in self._cleave_targets(target):
+                    self._deal_damage(u, nb, raw * CLEAVE_PCT, "physical")
+            # 羊刀：每次命中叠加攻速
+            if "ramping_as" in u.effects:
+                u.as_stack = min(RAMP_CAP, u.as_stack + RAMP_STEP)
+
         # 目标已被这次普攻打掉时保留法力，下一 tick 换目标再放技能
-        if u.mana >= u.max_mana and target.alive:
+        if u.alive and u.mana >= u.max_mana and target.alive:
             self._cast(u, target)
 
     def _cast(self, u: Unit, target: Unit) -> None:
         ab = u.ability
         u.mana = 0.0
         power = ability_power(u)
+        # 灭世者的死亡之帽：法强按比例提高（作用于本次技能威力，含大天使叠层）
+        if "ap_amp" in u.effects:
+            power *= 1.0 + AP_AMP_PCT
+
+        # 珠光护手：技能可暴击（仅伤害类技能；全场一次掷骰决定本次技能是否暴击）
+        crit = False
+        if ab.type in ("nuke", "aoe") and "ability_crit" in u.effects:
+            if self.rng.random() < u.crit_chance:
+                power *= CRIT_MULTIPLIER
+                crit = True
 
         if ab.type == "nuke":
             self._emit(
@@ -285,7 +353,8 @@ class Combat:
                 tx=round(target.x, 3),
                 ty=round(target.y, 3),
             )
-            self._deal_damage(u, target, power, "magic")
+            dealt = self._deal_damage(u, target, power, "magic", crit=crit)
+            self._spell_vamp(u, dealt)
 
         elif ab.type == "aoe":
             hits = [
@@ -306,45 +375,62 @@ class Combat:
                 tx=round(target.x, 3),
                 ty=round(target.y, 3),
             )
+            total = 0.0
             for o in hits:
-                self._deal_damage(u, o, power, "magic")
+                total += self._deal_damage(u, o, power, "magic", crit=crit)
+            self._spell_vamp(u, total)
 
         elif ab.type == "heal":
             allies = self.alive_units(u.team)
-            if not allies:
-                return
-            ally = min(allies, key=lambda a: a.hp_ratio)
-            healed = min(power, ally.max_hp - ally.hp)
-            ally.hp += healed
-            self._emit(
-                EV_HEAL,
-                name=u.name,
-                team=u.team,
-                uid=u.uid,
-                ability=ab.name,
-                target=ally.name,
-                amount=healed,
-                hp_left=ally.hp,
-                tx=round(ally.x, 3),
-                ty=round(ally.y, 3),
-            )
+            if allies:
+                ally = min(allies, key=lambda a: a.hp_ratio)
+                healed = self._heal(ally, min(power, ally.max_hp - ally.hp))
+                self._emit(
+                    EV_HEAL,
+                    name=u.name,
+                    team=u.team,
+                    uid=u.uid,
+                    ability=ab.name,
+                    target=ally.name,
+                    amount=healed,
+                    hp_left=ally.hp,
+                    tx=round(ally.x, 3),
+                    ty=round(ally.y, 3),
+                )
+
+        # 施法联动装备：大天使之杖永久叠法强、三相之力开启普攻强化
+        if "mana_ap" in u.effects:
+            u.ap += MANA_AP_STEP
+        if "on_cast_buff" in u.effects:
+            u.three_t = ON_CAST_DUR
 
     def _deal_damage(
-        self,         source: Unit, target: Unit, raw: float, kind: str, crit: bool = False
+        self, source: Unit, target: Unit, raw: float, kind: str, crit: bool = False
     ) -> float:
         if not target.alive:
             return 0.0
+
+        # 破甲弓：普攻无视目标部分护甲
         resist = target.armor if kind == "physical" else target.magic_resist
+        if kind == "physical" and "armor_pen" in source.effects:
+            resist *= 1.0 - ARMOR_PEN_PCT
+
         amount = mitigate(raw * (1.0 + source.damage_amp), resist)
+
+        # 龙牙：受到的魔法伤害降低
+        if kind == "magic" and "magic_resist" in target.effects:
+            amount *= 1.0 - MAGIC_RESIST_PCT
+        # 巨人杀手：对高生命目标造成额外伤害
+        if (
+            "giant_slayer" in source.effects
+            and target.max_hp >= source.max_hp * GIANT_SLAYER_RATIO
+        ):
+            amount *= 1.0 + GIANT_SLAYER_PCT
+        # 莫雷洛秘典：命中给目标挂重伤（削减其后续治疗/吸血）
+        if "grievous_wounds" in source.effects:
+            target.gw_t = GW_DUR
+
         target.hp -= amount
-
-        # 装备特效：吸血 / 法术吸血
-        if source.lifesteal > 0 and source.alive:
-            heal = amount * source.lifesteal
-            heal = min(heal, source.max_hp - source.hp)
-            if heal > 0:
-                source.hp += heal
-
         self._emit(
             EV_DAMAGE,
             source=source.name,
@@ -359,12 +445,101 @@ class Combat:
         )
 
         if target.hp <= 0.0:
-            target.hp = 0.0
-            target.alive = False
-            self._emit(EV_DEATH, name=target.name, team=target.team, uid=target.uid)
+            # 守护天使：首次阵亡复活并回复 50% 生命
+            if "revive" in target.effects and not target.revived:
+                target.revived = True
+                target.hp = target.max_hp * REVIVE_HP_PCT
+            else:
+                target.hp = 0.0
+                target.alive = False
+                self._emit(EV_DEATH, name=target.name, team=target.team, uid=target.uid)
         else:
             target.mana = min(target.max_mana, target.mana + MANA_ON_TAKE_HIT)
+
+        # 荆棘之甲/反甲：被普攻命中时向攻击者反弹已结算伤害的一部分（反弹为魔法伤害，不会再次触发）
+        if kind == "physical" and "thorns" in target.effects and amount > 0 and source.alive:
+            self._deal_damage(target, source, amount * THORNS_PCT, "magic")
         return amount
+
+    def _spell_vamp(self, u: Unit, dealt: float) -> None:
+        """海克斯科技枪刃：技能伤害吸血（科技枪与饮血剑从此可区分）。"""
+        if dealt > 0 and "spell_vamp" in u.effects and u.alive:
+            self._heal(u, dealt * SPELL_VAMP_PCT)
+
+    def _heal(self, u: Unit, amount: float) -> float:
+        """治疗统一入口：重伤（莫雷洛）会削减目标的治疗与吸血。"""
+        if amount <= 0.0 or not u.alive:
+            return 0.0
+        if u.gw_t > 0:
+            amount *= 1.0 - GW_REDUCE
+        healed = min(amount, max(0.0, u.max_hp - u.hp))
+        if healed > 0.0:
+            u.hp += healed
+        return healed
+
+    def _apply_status(self) -> None:
+        """每秒一次的持续特效结算：燃烧 DoT / 回血 / 计时衰减。"""
+        if self.tick % TICK_RATE != 0:
+            return
+        for u in self.units:
+            if not u.alive:
+                continue
+            if u.burn_t > 0 and u.burn_dps > 0:
+                src = self.by_uid.get(u.burn_src)
+                if src is not None:
+                    self._deal_damage(src, u, u.burn_dps, "magic")
+                u.burn_t -= 1.0
+            if u.gw_t > 0:
+                u.gw_t = max(0.0, u.gw_t - 1.0)
+            if u.three_t > 0:
+                u.three_t = max(0.0, u.three_t - 1.0)
+            # 狂徒铠甲：每秒回复少量生命
+            if "regen" in u.effects:
+                self._heal(u, u.max_hp * REGEN_PCT)
+
+    def _slowed_by_aura(self, u: Unit) -> bool:
+        """冰心减速光环：佩戴者周围（SLOW_AURA_RANGE 格内）的敌人攻速降低。"""
+        for o in self.units:
+            if (
+                o.alive
+                and o.team != u.team
+                and "slow_aura" in o.effects
+                and grid.hex_distance(u.cell, o.cell) <= SLOW_AURA_RANGE
+            ):
+                return True
+        return False
+
+    def _pick_split_target(self, u: Unit, main: Unit) -> Unit | None:
+        """分裂弓的副目标：射程内最近、且与主目标不同的存活敌人。"""
+        best: Unit | None = None
+        best_d = float("inf")
+        for o in self.units:
+            if (
+                o.alive
+                and o.team != u.team
+                and o is not main
+                and not o.transit
+                and grid.hex_distance(u.cell, o.cell) <= u.attack_range
+            ):
+                d = grid.hex_distance(u.cell, o.cell)
+                if d < best_d:
+                    best, best_d = o, d
+        return best
+
+    def _cleave_targets(self, target: Unit) -> list[Unit]:
+        """九头蛇溅射：目标邻格（六边形距离 1）的其它敌人（= 目标同阵营、非目标自身）。
+
+        注意：不能选 o.team != target.team —— 那会把攻击者（近战贴脸时）也算进去，
+        造成“溅射打到自己”。溅射目标是“目标身旁扎堆的敌阵”。
+        """
+        return [
+            o
+            for o in self.units
+            if o.alive
+            and o.team == target.team
+            and o is not target
+            and grid.hex_distance(o.cell, target.cell) <= 1
+        ]
 
     def _teams_alive(self) -> set[str]:
         """还有存活单位的队伍集合。"""
