@@ -78,6 +78,18 @@ def draw_item_bench(surface: pygame.Surface, bench: list, hover: int | None = No
             pygame.draw.rect(surface, theme.ACCENT, rect, width=2, border_radius=8)
 
 
+def draw_combine_candidates(surface: pygame.Surface, bench: list, drag_item, drag_slot: int) -> None:
+    """拖起一件基础装备时，给装备栏里'能合成'的目标格子描金色高亮。"""
+    from core.items import combine_key
+
+    for i, it in enumerate(bench):
+        if i == drag_slot or it is drag_item:
+            continue
+        if combine_key(drag_item.item_id, it.item_id):
+            rect = item_slot_rect(i)
+            pygame.draw.rect(surface, theme.GOLD, rect, width=3, border_radius=8)
+
+
 # ---------- 8 人战况面板 ----------
 
 

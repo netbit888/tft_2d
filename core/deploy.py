@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .grid import COLS, ROWS, TEAM_ROWS
+from .grid import AUTO_ROW_ORDER, COLS, ROWS, TEAM_ROWS
 from .loader import load_units
 from .player import MAX_BENCH, Piece, Player, unit_name
 
@@ -19,50 +19,75 @@ from .player import MAX_BENCH, Piece, Player, unit_name
 CENTER_ORDER = (3, 2, 4, 1, 5, 0, 6)
 
 
-def _first_free_col(row: int, occupied: set[tuple[int, int]]) -> int:
+def _first_free_col(row: int, occupied: set[tuple[int, int]]) -> int | None:
     for col in CENTER_ORDER:
         if (col, row) not in occupied:
             return col
-    return CENTER_ORDER[0]
+    return None
 
 
 def _assign_auto(
     pieces: list[Piece], team: str, occupied: set[tuple[int, int]]
 ) -> list[tuple[Piece, tuple[int, int]]]:
-    """给 pos 为 None 的棋子分配不冲突的格子：近战前排、远程后排。"""
+    """给 pos 为 None 的棋子分配不冲突的格子：近战前排、远程后排。
+
+    每方有四行可摆：近战从交火线那行开始，远程从其后排行带依次排；
+    某一行排满 7 个自动退到下一行。
+    """
     templates = load_units()
     rest = [p for p in pieces if p.pos is None]
     melee = [p for p in rest if templates[p.tid].attack_range <= 1]
     ranged = [p for p in rest if templates[p.tid].attack_range > 1]
 
     out: list[tuple[Piece, tuple[int, int]]] = []
+    lo, hi = TEAM_ROWS[team]
     for group, slot in ((melee, "front"), (ranged, "back")):
-        row = TEAM_ROWS[team][slot]
+        row_seq = AUTO_ROW_ORDER[team][slot]
         for p in group:
-            col = _first_free_col(row, occupied)
+            col = None
+            for row in row_seq:
+                col = _first_free_col(row, occupied)
+                if col is not None:
+                    break
+            if col is None:  # 兜底：半场里随便找空位
+                for row in range(lo, hi + 1):
+                    col = _first_free_col(row, occupied)
+                    if col is not None:
+                        break
+            if col is None:
+                continue
             occupied.add((col, row))
             out.append((p, (col, row)))
     return out
 
 
-def auto_place(pieces: list[Piece], team: str) -> list[dict]:
-    """把棋子转换成 build_team 需要的布阵列表。
+def auto_seat(pieces: list[Piece], team: str) -> list[tuple[Piece, tuple[int, int]]]:
+    """把棋子排到站位上，返回 (棋子, 站位) 列表。
 
     已手动摆放的用玩家给的位置，其余按"近战前排、远程后排"自动补位，
-    且不会覆盖玩家已经占用的格子。
+    且不会覆盖玩家已经占用的格子。结果与 auto_place 完全一致，
+    只是额外保留了棋子对象引用，供 UI 把"屏幕上的格子"反查回棋子做悬停详情。
     """
-    placements: list[dict] = []
     occupied: set[tuple[int, int]] = set()
+    seated: list[tuple[Piece, tuple[int, int]]] = []
 
     for p in pieces:
         if p.pos is not None:
             col, row = int(p.pos[0]), int(p.pos[1])
-            placements.append({"id": p.tid, "star": p.star, "pos": [col, row], "equip": p.equip})
+            seated.append((p, (col, row)))
             occupied.add((col, row))
 
     for p, (col, row) in _assign_auto(pieces, team, occupied):
-        placements.append({"id": p.tid, "star": p.star, "pos": [col, row], "equip": p.equip})
+        seated.append((p, (col, row)))
 
+    return seated
+
+
+def auto_place(pieces: list[Piece], team: str) -> list[dict]:
+    """把棋子转换成 build_team 需要的布阵列表（由 auto_seat 派生）。"""
+    placements: list[dict] = []
+    for p, (col, row) in auto_seat(pieces, team):
+        placements.append({"id": p.tid, "star": p.star, "pos": [col, row], "equip": p.equip})
     return placements
 
 
@@ -91,10 +116,10 @@ class MoveResult:
     message: str
 
 
-def own_rows(team: str) -> tuple[int, int]:
-    """己方可以摆放的两行（core 行号）。"""
-    rows = TEAM_ROWS[team]
-    return rows["back"], rows["front"]
+def own_rows(team: str) -> tuple[int, ...]:
+    """己方可以摆放的行（core 行号，每方 4 行）。"""
+    lo, hi = TEAM_ROWS[team]
+    return tuple(range(lo, hi + 1))
 
 
 def piece_at(player: Player, col: int, row: int) -> Piece | None:

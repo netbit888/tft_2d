@@ -24,7 +24,7 @@ except Exception:
 
 from core import Combat, build_team, load_traits, load_units  # noqa: E402
 from core.events import LOG_DEFAULT, EV_MOVE, format_event  # noqa: E402
-from core.grid import TEAM_ROWS  # noqa: E402
+from core.grid import AUTO_ROW_ORDER  # noqa: E402
 from core.traits import count_traits, describe  # noqa: E402
 
 # 默认演示阵容：蓝方偏防守，红方偏爆发
@@ -88,7 +88,7 @@ def run_single(blue_pl, red_pl, seed: int | None, verbose: bool = False) -> None
 def random_placements(rng: random.Random, team: str, pool: list[str], size: int) -> list[dict]:
     """随机布阵：近战放前排，远程放后排，列不重复。"""
     picks = rng.sample(pool, size)
-    front_row, back_row = TEAM_ROWS[team]["front"], TEAM_ROWS[team]["back"]
+    front_row, back_row = AUTO_ROW_ORDER[team]["front"][0], AUTO_ROW_ORDER[team]["back"][0]
     cols = rng.sample(range(7), size)
     templates = load_units()
     out = []
@@ -167,8 +167,8 @@ def run_mirror(n: int, seed: int, size: int = 4) -> None:
         bp, rp = [], []
         for uid, col in zip(picks, cols):
             slot = "back" if tpls[uid].attack_range > 1 else "front"
-            bp.append({"id": uid, "star": 1, "pos": [col, TEAM_ROWS["blue"][slot]]})
-            rp.append({"id": uid, "star": 1, "pos": [col, TEAM_ROWS["red"][slot]]})  # 上下镜像
+            bp.append({"id": uid, "star": 1, "pos": [col, AUTO_ROW_ORDER["blue"][slot][0]]})
+            rp.append({"id": uid, "star": 1, "pos": [col, AUTO_ROW_ORDER["red"][slot][0]]})  # 上下镜像
 
         r = Combat(
             build_team(bp, "blue"), build_team(rp, "red"), seed=rng.randint(0, 2**31 - 1)

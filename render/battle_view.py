@@ -20,19 +20,15 @@ from core.events import EV_ATTACK, EV_CAST, EV_DAMAGE, EV_DEATH, EV_HEAL
 
 from . import theme
 from .assets import font, text
-from .board_view import draw_grid, draw_piece, visual_from_unit
+from .board_view import draw_grid, draw_piece, hex_point, visual_from_unit
 from .widgets import Button, panel
 
 # ---------- 坐标 ----------
 
 
 def board_pos(x: float, y: float) -> tuple[float, float]:
-    """core 的棋盘坐标（浮点）-> 屏幕像素。y 需要翻转：己方在屏幕下方。"""
-    disp = (theme.BOARD_ROWS - 1) - y
-    return (
-        theme.BOARD_X + (x + 0.5) * theme.CELL,
-        theme.BOARD_Y + (disp + 0.5) * theme.CELL,
-    )
+    """core 的棋盘坐标（浮点）-> 屏幕像素（与备战/布阵同一套蜂窝映射）。"""
+    return hex_point(x, y)
 
 
 def event_pos(data: dict) -> tuple[float, float]:

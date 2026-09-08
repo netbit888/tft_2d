@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import pygame
 
-from core.loader import load_traits, load_units
+from core.loader import load_units
 
 from . import theme
-from .assets import render, text
+from .assets import text
 from .board_view import PieceVisual, draw_piece, trait_tag
 from .widgets import panel
 
@@ -104,24 +104,8 @@ def _rarity_header(surface: pygame.Surface, rect: pygame.Rect, rar: dict) -> Non
         )
 
 
-def _star_pips(surface: pygame.Surface, x: int, y: int, count: int, pip: int) -> None:
-    """升星进度：实心小菱形表示已持有的张数。"""
-    gap = int(pip * 2.0)
-    dark = (44, 47, 58)
-    for i in range(3):
-        cx = x + i * gap
-        half = pip
-        pts = [(cx, y - half), (cx + half, y), (cx, y + half), (cx - half, y)]
-        pygame.draw.polygon(surface, theme.GOLD if i < count else dark, pts)
-        pygame.draw.polygon(surface, (12, 13, 18), pts, width=1)
-
-
-def draw_shop(
-    surface: pygame.Surface, slots, owned: dict[str, int] | None = None, pool=None
-) -> None:
-    """owned 是 tid -> 持有数量的映射（升星进度），pool 用来显示卡池余量。"""
-    owned = owned or {}
-    traits_data = load_traits()
+def draw_shop(surface: pygame.Surface, slots) -> None:
+    """商店卡：极简 —— 只显示名字 + 费用徽章 + 稀有度描边，其余一律不画。"""
     s = theme.S
 
     for i, item in enumerate(slots):
@@ -137,13 +121,13 @@ def draw_shop(
         panel(surface, rect, rar["fill"], radius=10, border=rar["edge"], width=max(2, 2 * s))
         _rarity_header(surface, rect, rar)
 
-        # 名称
+        # 名字（卡片中部左侧）
         text(
             surface,
             tpl.name,
             theme.FS_NORMAL,
             theme.TEXT,
-            (rect.x + 12 * s, rect.y + int(rect.height * 0.26)),
+            (rect.x + 12 * s, rect.y + int(rect.height * 0.40)),
         )
 
         # 费用徽章
@@ -151,43 +135,3 @@ def draw_shop(
         badge.topright = (rect.right - 10 * s, rect.y + int(rect.height * 0.20))
         panel(surface, badge, rar["edge"], radius=max(2, 4 * s), border=(12, 13, 18), width=1)
         text(surface, str(item.cost), theme.FS_SMALL, (16, 18, 24), badge.center, center=True)
-
-        # 羁绊标签
-        x = rect.x + 12 * s
-        y = rect.y + int(rect.height * 0.48)
-        for t in tpl.traits:
-            name = traits_data.get(t, {}).get("name", t)
-            color = theme.TRAIT_COLORS.get(t, theme.TRAIT_FALLBACK)
-            w = len(name) * theme.FS_TINY + int(16 * s)
-            tag = pygame.Rect(x, y, w, int(22 * s))
-            panel(surface, tag, color, radius=max(2, 5 * s), border=(12, 13, 18), width=1)
-            text(surface, name, theme.FS_TINY, (255, 255, 255), tag.center, center=True)
-            x += w + 8 * s
-
-        # 属性摘要 + 卡池余量
-        info = f"HP {tpl.hp:.0f}  AD {tpl.ad:.0f}  射程 {tpl.attack_range}"
-        left = pool.count(item.tid) if pool is not None else -1
-        if left >= 0:
-            info += f"  剩 {left}"
-        color = theme.TEXT_DIM if left != 0 else theme.HP_RED
-        text(
-            surface,
-            info,
-            theme.FS_TINY,
-            color,
-            (rect.x + 12 * s, rect.bottom - int(24 * s)),
-        )
-
-        # 升星进度
-        count = owned.get(item.tid, 0)
-        if count:
-            _star_pips(
-                surface,
-                rect.right - int(52 * s),
-                rect.bottom - int(18 * s),
-                min(3, count),
-                max(3, int(5 * s)),
-            )
-            tip = "可升星！" if count >= 2 else "1/3"
-            img = render(tip, theme.FS_MICRO, theme.GOLD if count >= 2 else theme.TEXT_DIM)
-            surface.blit(img, (rect.right - img.get_width() - int(12 * s), rect.y + int(rect.height * 0.48) + int(24 * s)))

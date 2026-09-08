@@ -1,10 +1,11 @@
 """棋盘与棋子的绘制。
 
-坐标说明：core 里己方（blue）在 row 0-1、敌方（red）在 row 2-3；
-屏幕上己方要显示在下半部分，所以绘制时把行号翻转（display_row = 3 - core_row）。
+坐标说明：core 里己方（blue）占 row 0-3（屏幕下半）、敌方（red）占 row 4-7（屏幕上半）；
+绘制时把行号翻转（display_row = 7 - core_row），让己方显示在下半部分。
 
-地砖是菱形（旋转 45° 的正方形），7x4 的逻辑网格不变，
-因此战斗插值坐标、自动摆位、AI 全都不受影响，只有命中判定从矩形改成菱形（曼哈顿距离）。
+棋盘画成蜂窝六边形：尖顶六边形逐列排开，相邻行整体错半格（odd-r 偏移）。
+core 的战斗/摆位仍按 7x8 行列逻辑坐标算，绘制层只负责把 (col,row) 翻译成屏幕点，
+命中判定改为点是否落在对应六边形内。
 """
 
 from __future__ import annotations
@@ -17,10 +18,12 @@ import pygame
 from core.loader import load_traits, load_units
 
 from . import theme
-from .assets import font, render, text
+from .assets import font
 from .widgets import bar, hp_color, panel
 
-# ---------- 坐标换算 ----------
+# ---------- 坐标换算（蜂窝六边形，odd-r） ----------
+
+_COS30 = 0.86602540378
 
 
 def core_row_to_display(core_row: int) -> int:
@@ -31,13 +34,24 @@ def display_row_to_core(display_row: int) -> int:
     return theme.BOARD_ROWS - 1 - display_row
 
 
+def hex_point(col: float, core_row: float) -> tuple[float, float]:
+    """core 坐标 -> 屏幕坐标，col/core_row 允许是浮点（战斗插值用）。
+
+    行错位用余弦在整数行之间平滑过渡：偶数行错 0、奇数行错半列，
+    移动中的单位不会在跨行时产生跳变。
+    """
+    disp = theme.BOARD_ROWS - 1 - core_row
+    # 偶数行错 0、奇数行错半列，行间用余弦平滑过渡
+    shift = theme.HEX_COL_STEP * 0.5 * (0.5 - 0.5 * math.cos(math.pi * disp))
+    x = theme.BOARD_X + theme.HEX_COL_STEP * (col + 1.0) + shift
+    y = theme.BOARD_Y + theme.HEX_R + theme.HEX_ROW_STEP * disp
+    return x, y
+
+
 def cell_center(col: int, core_row: int) -> tuple[int, int]:
     """某个格子中心的屏幕坐标（传 core 坐标）。"""
-    disp = core_row_to_display(core_row)
-    return (
-        theme.BOARD_X + int((col + 0.5) * theme.CELL),
-        theme.BOARD_Y + int((disp + 0.5) * theme.CELL),
-    )
+    x, y = hex_point(float(col), float(core_row))
+    return int(round(x)), int(round(y))
 
 
 def cell_rect(col: int, core_row: int) -> pygame.Rect:
@@ -48,34 +62,48 @@ def cell_rect(col: int, core_row: int) -> pygame.Rect:
 
 
 def cell_polygon(col: int, core_row: int, shrink: int = 0) -> list[tuple[int, int]]:
-    """菱形地砖的四个顶点（上、右、下、左）。"""
+    """尖顶六边形的六个顶点（从最上点顺时针），返回整数坐标。"""
     cx, cy = cell_center(col, core_row)
-    half = theme.CELL // 2 - theme.TILE_INSET - shrink
-    return [(cx, cy - half), (cx + half, cy), (cx, cy + half), (cx - half, cy)]
+    r = max(1, theme.HEX_R - theme.TILE_INSET - shrink)
+    w = int(round(_COS30 * r))
+    half = (r + 1) // 2
+    return [
+        (cx, cy - r),
+        (cx + w, cy - half),
+        (cx + w, cy + half),
+        (cx, cy + r),
+        (cx - w, cy + half),
+        (cx - w, cy - half),
+    ]
+
+
+def _in_polygon(px: float, py: float, pts) -> bool:
+    """射线法点是否在多边形内。"""
+    inside = False
+    n = len(pts)
+    j = n - 1
+    for i in range(n):
+        xi, yi = pts[i]
+        xj, yj = pts[j]
+        if (yi > py) != (yj > py):
+            cross = (xj - xi) * (py - yi) / ((yj - yi) or 1e-9) + xi
+            if px < cross:
+                inside = not inside
+        j = i
+    return inside
 
 
 def cell_at(pos) -> tuple[int, int] | None:
-    """屏幕坐标 -> (col, core_row)，不在任何菱形内返回 None。
+    """屏幕坐标 -> (col, core_row)，不在任何六边形内返回 None。
 
-    菱形判定就是曼哈顿距离：|dx| + |dy| <= 半对角线，比多边形包含测试快得多。
-    格子只有 28 个，直接全遍历，逻辑最简单也不会漏边角。
+    全量遍历 56 个六边形做包含测试，逻辑简单、不会漏边角。
     """
     x, y = pos
-    if not (
-        theme.BOARD_X <= x < theme.BOARD_X + theme.BOARD_W
-        and theme.BOARD_Y <= y < theme.BOARD_Y + theme.BOARD_H
-    ):
-        return None
-    limit = theme.CELL / 2
-    best = None
-    best_d = 1e9
     for core_row in range(theme.BOARD_ROWS):
         for col in range(theme.BOARD_COLS):
-            cx, cy = cell_center(col, core_row)
-            d = abs(x - cx) + abs(y - cy)
-            if d <= limit and d < best_d:
-                best_d, best = d, (col, core_row)
-    return best
+            if _in_polygon(x, y, cell_polygon(col, core_row)):
+                return col, core_row
+    return None
 
 
 # ---------- 棋子外观 ----------
@@ -153,7 +181,7 @@ def _clear_caches() -> None:
 
 
 def _avatar(v: PieceVisual, size: int) -> pygame.Surface:
-    """程序化生成一个棋子头像：队伍光环 + 稀有度描边 + 渐变底 + 首字 + 名牌 + 星级。
+    """程序化生成一个棋子头像：队伍光环 + 稀有度描边 + 渐变底 + 首字 + 星级。
 
     棋子在一局里外观不变（除了星级和生死），所以整张图缓存下来，
     每帧只做一次 blit，高分辨率下这是最大的一笔性能节省。
@@ -199,34 +227,14 @@ def _avatar(v: PieceVisual, size: int) -> pygame.Surface:
     if star_ring:
         pygame.draw.circle(surf, star_ring, c, r - max(3, 4 * s), width=max(1, 2 * s))
 
-    # 首字
+    # 首字（大头像唯一的内容；名牌与羁绊角标已去掉，后续换圆形贴图）
     if v.name:
-        fs = max(8, int(size * 0.42))
+        fs = max(10, int(size * 0.52))
         glyph = v.name[0]
         dark = font(fs).render(glyph, True, (12, 13, 18))
         light = font(fs).render(glyph, True, (255, 255, 255) if v.alive else (170, 173, 182))
         surf.blit(dark, (c[0] - dark.get_width() // 2, c[1] - dark.get_height() // 2 + max(1, s)))
         surf.blit(light, (c[0] - light.get_width() // 2, c[1] - light.get_height() // 2))
-
-    # 名牌（贴在头像下缘）
-    plate_w = int(size * 0.75)
-    plate_h = max(6, int(size * 0.28))
-    plate = pygame.Rect(0, 0, plate_w, plate_h)
-    plate.center = (c[0], c[1] + int(r * 0.58))
-    panel(surf, plate, (12, 14, 20), radius=plate_h // 2, border=theme.shade(team_color, 1.2))
-    img = render(v.name, max(8, int(size * 0.19)), theme.TEXT if v.alive else theme.TEXT_DIM)
-    if img.get_width() > plate.width - 4 * s:
-        img = render(v.name, max(8, int(size * 0.16)), theme.TEXT if v.alive else theme.TEXT_DIM)
-    surf.blit(img, (plate.centerx - img.get_width() // 2, plate.centery - img.get_height() // 2))
-
-    # 职业角标（左下）
-    badge = max(8, int(size * 0.34))
-    bx, by = c[0] - int(0.70 * r), c[1] + int(0.70 * r)
-    brect = pygame.Rect(0, 0, badge, badge)
-    brect.center = (bx, by)
-    panel(surf, brect, v.tag_color, radius=max(2, badge // 4), border=(12, 13, 18), width=1)
-    tg = font(max(7, int(badge * 0.68))).render(v.tag, True, (255, 255, 255))
-    surf.blit(tg, (brect.centerx - tg.get_width() // 2, brect.centery - tg.get_height() // 2))
 
     # 星级（顶部一排金星）
     if v.star > 1:
@@ -321,38 +329,34 @@ _GRID_CACHE: dict[int, pygame.Surface] = {}
 
 
 def draw_grid(surface: pygame.Surface) -> None:
-    """画 7x4 菱形棋盘。棋盘是静态的，整块缓存，每帧一次 blit。"""
+    """画 7x8 蜂窝六边形棋盘。棋盘是静态的，整块缓存，每帧一次 blit。"""
     key = theme.S
     cached = _GRID_CACHE.get(key)
     if cached is None:
         cached = _render_grid()
         _GRID_CACHE[key] = cached
-    surface.blit(cached, (theme.BOARD_X - theme.CELL // 4, theme.BOARD_Y - theme.CELL // 4))
+    surface.blit(cached, (theme.BOARD_X, theme.BOARD_Y))
 
 
 def _render_grid() -> pygame.Surface:
     s = theme.S
-    pad = theme.CELL // 4
-    w = theme.BOARD_W + pad * 2
-    h = theme.BOARD_H + pad * 2
+    w, h = theme.BOARD_W, theme.BOARD_H
     surf = pygame.Surface((w, h))
     surf.fill(theme.BG_SOFT)
 
-    # 底板（把锯齿边包住，让棋盘有个整体轮廓）
-    board_bg = pygame.Rect(pad // 2, pad // 2, w - pad, h - pad)
+    # 底板（把边缘包住，让棋盘有个整体轮廓）
+    board_bg = pygame.Rect(4, 4, w - 8, h - 8)
     panel(surf, board_bg, (24, 27, 35), radius=12 * s, border=theme.BORDER_SOFT, width=1)
 
-    def local_center(col: int, core_row: int) -> tuple[int, int]:
-        cx, cy = cell_center(col, core_row)
-        return cx - theme.BOARD_X + pad, cy - theme.BOARD_Y + pad
-
+    own_top = theme.BOARD_ROWS // 2  # 己方 core row 0..3
     for core_row in range(theme.BOARD_ROWS):
         for col in range(theme.BOARD_COLS):
-            cx, cy = local_center(col, core_row)
-            half = theme.CELL // 2 - theme.TILE_INSET
-            pts = [(cx, cy - half), (cx + half, cy), (cx, cy + half), (cx - half, cy)]
+            # surface 贴到 (BOARD_X, BOARD_Y)，这里必须用相对棋盘原点的局部坐标
+            cx, cy = cell_center(col, core_row)
+            lx, ly = cx - theme.BOARD_X, cy - theme.BOARD_Y
+            pts = [(x - theme.BOARD_X, y - theme.BOARD_Y) for x, y in cell_polygon(col, core_row)]
 
-            if core_row <= 1:  # 己方半场
+            if core_row < own_top:  # 己方半场（屏幕下半）
                 base = theme.SELF_ROW_TINT if (col + core_row) % 2 == 0 else theme.shade(
                     theme.SELF_ROW_TINT, 0.82
                 )
@@ -362,22 +366,22 @@ def _render_grid() -> pygame.Surface:
                 )
             pygame.draw.polygon(surf, base, pts)
             # 内侧暗一点，做出一点厚度
-            inner = [(x, cy + (y - cy) * 0.86) for x, y in pts]
+            inner = [(x, ly + (y - ly) * 0.88) for x, y in pts]
             pygame.draw.polygon(surf, theme.shade(base, 0.86), inner)
             pygame.draw.polygon(surf, theme.BORDER, pts, width=max(1, s))
 
-    # 中线
-    mid_y = pad + 2 * theme.CELL
-    pygame.draw.line(surf, theme.ACCENT, (pad, mid_y), (w - pad, mid_y), max(2, 2 * s))
+    # 中线（两军交火分界）
+    mid_y = h // 2
+    pygame.draw.line(surf, theme.ACCENT, (4, mid_y), (w - 4, mid_y), max(2, 2 * s))
     return surf
 
 
 def draw_deploy_highlight(surface: pygame.Surface, accent=None, t: float = 0.0) -> None:
-    """拖拽摆位时高亮己方两行（core_row 0、1）的菱形边框。"""
+    """拖拽摆位时高亮己方半场四行（core_row 0..3）的六边形边框。"""
     accent = accent or theme.ACCENT
     pulse = 0.55 + 0.45 * math.sin(t * 6.0)
     color = theme.mix(theme.shade(accent, 0.7), (255, 255, 255), 0.25 * pulse)
-    for core_row in (0, 1):
+    for core_row in range(theme.BOARD_ROWS // 2):
         for col in range(theme.BOARD_COLS):
             pygame.draw.polygon(
                 surface, color, cell_polygon(col, core_row, shrink=theme.TILE_INSET), width=max(2, 2 * theme.S)

@@ -54,11 +54,15 @@ def _layout(s: int) -> dict:
     board_area_h = 470 * s
     side_w = 268 * s
 
-    board_cols, board_rows = 7, 4
-    cell = 92 * s
-    board_w = board_cols * cell
-    board_h = board_rows * cell
-    board_x = side_w + (win_w - side_w - board_w) // 2
+    board_cols, board_rows = 7, 8
+    # 六边形（尖顶朝上）蜂窝棋盘：hex_r 是外接圆半径，行列间距按正六边形几何推导。
+    hex_r = 33 * s
+    col_step = int(round(hex_r * 1.732))  # 横向邻格中心距 = sqrt(3) * r
+    row_step = int(round(hex_r * 1.5))    # 相邻行中心距 = 1.5 * r
+    cell = hex_r * 2                      # 棋子/动效仍按“格子”概念缩放
+    board_w = board_cols * col_step + col_step  # 列跨距 + 错位/顶点留白
+    board_h = (board_rows - 1) * row_step + 2 * hex_r
+    board_x = (win_w - board_w) // 2
     board_y = top_h + (board_area_h - board_h) // 2
 
     bench_slots = 8
@@ -181,15 +185,18 @@ def _layout(s: int) -> dict:
         "FS_TINY": int(13 * s),
         "FS_MICRO": int(11 * s),
         "FS_PIECE": int(18 * s),
-        # ---------- 棋盘 ----------
+        # ---------- 棋盘（蜂窝六边形） ----------
         "BOARD_COLS": board_cols,
         "BOARD_ROWS": board_rows,
         "CELL": cell,
+        "HEX_R": hex_r,
+        "HEX_COL_STEP": col_step,
+        "HEX_ROW_STEP": row_step,
         "BOARD_W": board_w,
         "BOARD_H": board_h,
         "BOARD_X": board_x,
         "BOARD_Y": board_y,
-        "TILE_INSET": 2 * s,  # 菱形地砖之间留的缝
+        "TILE_INSET": 2 * s,  # 六边形地砖之间留的缝
         "PIECE_RATIO": 0.74,  # 头像直径 / 格子边长
         # ---------- 备战席 ----------
         "BENCH_SLOTS": bench_slots,

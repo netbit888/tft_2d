@@ -21,12 +21,12 @@ import math
 import pygame
 
 from core import ai_take_turn, ai_equip, ai_upgrade_check, buy_xp
-from core.deploy import auto_place, move_piece, piece_at
+from core.deploy import auto_seat, move_piece, piece_at
 from core.events import EV_CAST, EV_DEATH, EV_END, EV_HEAL, format_event
 from core.items import (
     MAX_ITEMS_PER_PIECE,
-    combine_key,
     combined_item_id,
+    is_base_item,
     item_name,
 )
 from core.loader import load_traits, load_units
@@ -46,7 +46,9 @@ from .board_view import (
     draw_placements,
     visual_from_tid,
 )
+from .info import draw_tip
 from .item_view import (
+    draw_combine_candidates,
     draw_item_bench,
     draw_roster,
     item_slot_at,
@@ -62,7 +64,7 @@ from .shop_view import (
 )
 from .widgets import Button, bar, dim_overlay, panel, tooltip
 
-HINT = "左键拖拽摆位 / 右键卖出 / 拖装备到棋子装备 / 装备栏内两件合成 / ESC 退出"
+HINT = "左键单击棋子查看详情 / 左键拖拽摆位 / 右键卖出 / 拖装备到棋子 / 装备栏拖两件合成 / ESC 退出"
 
 
 class App:
@@ -105,6 +107,14 @@ class App:
         self.hover_item: int | None = None
         self.xp_held = False  # 升级按钮是否被按住（长按连升）
         self.xp_cd = 0.0  # 长按连升冷却
+        # 左键单击详情：press 记录按下起点，原地松开判为单击
+        self._press: dict | None = None
+        self.detail: dict | None = None  # {"owner": Player, "piece": Piece}
+
+        # 悬停信息层：每帧由 draw_teams/_draw_traits 更新
+        self._seat_blue: dict = {}
+        self._seat_red: dict = {}
+        self._trait_hits: list = []
 
         self._init_buttons()
 
@@ -189,6 +199,9 @@ class App:
             self.running = False
             return
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            if self.detail is not None:  # 先关详情，再按才退出
+                self.detail = None
+                return
             self.running = False
             return
 
@@ -232,21 +245,66 @@ class App:
                 if iidx is not None and iidx < len(self.game.you.item_bench):
                     self.start_item_drag(iidx)
                     return
-                self.start_drag(event.pos)
+                # 不立即拖拽：记下起点，原地松开判定为单击棋子；移动超过阈值才转拖拽
+                self._press = {"pos": event.pos}
             elif event.button == 3:  # 右键卖出
                 self.sell_at(event.pos)
-        elif event.type == pygame.MOUSEMOTION and self.drag:
-            self.drag["mouse"] = event.pos
-        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1 and self.drag:
-            if self.drag.get("kind") == "item":
-                self.drop_item(event.pos)
-            else:
-                self.drop(event.pos)
+        elif event.type == pygame.MOUSEMOTION:
+            if self.drag:
+                self.drag["mouse"] = event.pos
+            elif self._press is not None:
+                px, py = self._press["pos"]
+                x, y = event.pos
+                if math.hypot(x - px, y - py) > max(4, int(6 * theme.S)):
+                    self.start_drag(self._press["pos"])
+                    self._press = None
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            if self._press is not None:
+                pos = self._press["pos"]
+                self._press = None
+                self._on_piece_click(pos)
+            elif self.drag:
+                if self.drag.get("kind") == "item":
+                    self.drop_item(event.pos)
+                else:
+                    self.drop(event.pos)
+
+    def _hit_piece(self, pos):
+        """屏幕坐标上的棋子及其所属玩家（棋盘蓝/红、你方备战席），没有返回 None。"""
+        you = self.game.you
+        cell = cell_at(pos)
+        if cell is not None:
+            p = self._seat_blue.get(cell)
+            if p is not None:
+                return you, p
+            p = self._seat_red.get(cell)
+            if p is not None:
+                return self.game.enemy, p
+        idx = bench_slot_at(pos)
+        if idx is not None and idx < len(you.bench):
+            return you, you.bench[idx]
+        return None
+
+    def _on_piece_click(self, pos) -> None:
+        """左键单击开关棋子详情：点棋子打开/切换，点同一棋子或空白处关闭。"""
+        hit = self._hit_piece(pos)
+        if hit is None:
+            self.detail = None
+            return
+        owner, piece = hit
+        if self.detail and self.detail["owner"] is owner and self.detail["piece"] is piece:
+            self.detail = None
+        else:
+            self.detail = {"owner": owner, "piece": piece}
 
     # ================= 运营阶段交互 =================
 
     def piece_at_board(self, col: int, row: int):
-        return piece_at(self.game.you, col, row)
+        """该格子的己方棋子（含自动补位、还没手动落位的）。"""
+        p = piece_at(self.game.you, col, row)
+        if p is not None:
+            return p
+        return self._seat_blue.get((col, row))
 
     def start_drag(self, pos) -> None:
         you = self.game.you
@@ -301,7 +359,9 @@ class App:
                 you.item_bench.remove(other)
                 from core.items import ItemInstance
 
-                you.item_bench.append(ItemInstance(key))
+                # 记录两件基础件：卖出装备的棋子时才能拆回（否则基础件凭空消失）
+                parts = tuple(key.split("+", 1))
+                you.item_bench.append(ItemInstance(key, components=parts))
                 self.message = f"合成 {item_name(key)}！"
                 self.fx.append(
                     {
@@ -435,6 +495,10 @@ class App:
             }
         )
 
+    def _close_detail_of(self, piece) -> None:
+        if self.detail is not None and self.detail["piece"] is piece:
+            self.detail = None
+
     def sell_at(self, pos) -> None:
         you = self.game.you
         before = you.gold
@@ -444,11 +508,14 @@ class App:
             if piece is not None:
                 self.message = sell_piece(you, piece)
                 self._push_gold_delta(before)
+                self._close_detail_of(piece)
                 return
         idx = bench_slot_at(pos)
         if idx is not None and idx < len(you.bench):
-            self.message = sell_piece(you, you.bench[idx])
+            piece = you.bench[idx]
+            self.message = sell_piece(you, piece)
             self._push_gold_delta(before)
+            self._close_detail_of(piece)
 
     # ================= 战斗与回合 =================
 
@@ -459,6 +526,7 @@ class App:
         其余 AI 对局直接结算（不逐场回放，只更新战况）。
         """
         g = self.game
+        self.detail = None  # 进入战斗先收起棋子详情
 
         # 所有 AI 运营
         for i, p in enumerate(g.players):
@@ -536,6 +604,7 @@ class App:
         self.game.begin_round()
         self.phase = self.PHASE_DEPLOY
         self.message = ""
+        self.detail = None
         self.banner = {"text": f"回合 {self.game.round}", "life": 1.25, "total": 1.25}
 
     # ================= 绘制 =================
@@ -559,7 +628,7 @@ class App:
             draw_grid(self.screen)
             self.draw_teams()
             draw_bench(self.screen, self.visible_bench())
-            draw_shop(self.screen, self.game.shop_you.slots, self.owned_counts(), self.game.pool)
+            draw_shop(self.screen, self.game.shop_you.slots)
             self.draw_hints()
             self.draw_drag()
 
@@ -568,6 +637,10 @@ class App:
         self.draw_side_buttons()
         self.draw_fx()
         self.draw_floaters()
+
+        # 悬停详情 tooltip 置于最上层（结果/回合横幅之前）
+        if self.phase == self.PHASE_DEPLOY:
+            self._draw_hover_layer()
 
         if self.phase in (self.PHASE_RESULT, self.PHASE_OVER):
             self.draw_result()
@@ -597,16 +670,15 @@ class App:
         self.btn_fight.draw(self.screen, self.time)
 
     def draw_item_bench_ui(self) -> None:
-        """装备栏 + 悬停提示。"""
+        """装备栏面板；拖基础装备时给可合成的目标格描金框。"""
         if self.phase != self.PHASE_DEPLOY:
             return
         draw_item_bench(self.screen, self.game.you.item_bench, hover=self.hover_item)
-        # 悬停装备显示名字
-        mouse = pygame.mouse.get_pos()
-        idx = item_slot_at(mouse)
-        if idx is not None and idx < len(self.game.you.item_bench):
-            it = self.game.you.item_bench[idx]
-            tooltip(self.screen, item_name(it.item_id), (mouse[0] + 12 * theme.S, mouse[1]))
+        drag = self.drag
+        if drag and drag.get("kind") == "item" and is_base_item(drag["item"].item_id):
+            draw_combine_candidates(
+                self.screen, self.game.you.item_bench, drag["item"], drag["slot"]
+            )
 
     def draw_roster_ui(self) -> None:
         """8 人战况面板。"""
@@ -732,6 +804,7 @@ class App:
             theme.BOARD_AREA_H - 24 * theme.S,
         )
         panel(self.screen, rect, theme.PANEL, radius=10, border=theme.BORDER)
+        self._trait_hits = []
 
         y = rect.y + 12 * theme.S
         for title, player in (("你的羁绊", self.game.you), ("电脑的羁绊", self.game.enemy)):
@@ -769,6 +842,9 @@ class App:
             tiers = [t["count"] for t in info.get("tiers", [])]
             active = any(count >= t for t in tiers)
 
+            # 记录整行命中区，供悬停详情 tooltip 使用
+            self._trait_hits.append((pygame.Rect(x, y, width, theme.SIDE_LINE_H), tid, count))
+
             box = pygame.Rect(x, y + (theme.SIDE_LINE_H - dot) // 2, dot, dot)
             panel(
                 self.screen,
@@ -805,13 +881,6 @@ class App:
 
     # ---------- 棋盘 / 队伍 ----------
 
-    def owned_counts(self) -> dict[str, int]:
-        """每个棋子的持有数量，用于商店里的升星进度提示。"""
-        counts: dict[str, int] = {}
-        for p in list(self.game.you.board) + list(self.game.you.bench):
-            counts[p.tid] = counts.get(p.tid, 0) + 1
-        return counts
-
     def drawing_piece(self):
         return self.drag["piece"] if self.drag else None
 
@@ -823,8 +892,17 @@ class App:
         g = self.game
         skip = self.drawing_piece()
         you_board = [p for p in g.you.board if p is not skip]
-        draw_placements(self.screen, auto_place(you_board, "blue"), "blue")
-        draw_placements(self.screen, auto_place(g.enemy.board, "red"), "red")
+        self._seat_blue = self._draw_team(you_board, "blue")
+        self._seat_red = self._draw_team(g.enemy.board, "red")
+
+    def _draw_team(self, pieces, team: str) -> dict:
+        """按站位画一队，并返回 格子 -> 棋子 的反查表（命中/详情用）。"""
+        seat = auto_seat(pieces, team)
+        placements = [
+            {"id": p.tid, "star": p.star, "pos": [col, row], "equip": p.equip} for p, (col, row) in seat
+        ]
+        draw_placements(self.screen, placements, team)
+        return {tuple(pos): p for p, pos in seat}
 
     def draw_hints(self) -> None:
         you = self.game.you
@@ -847,7 +925,7 @@ class App:
         v = visual_from_tid(piece.tid, piece.star, "blue")
         mouse = drag["mouse"]
 
-        # 己方两行高亮，提示合法落点
+        # 己方半场高亮，提示合法落点
         draw_deploy_highlight(self.screen, t=self.time)
 
         # 原位置半透明占位，避免拖走后格子"凭空消失"
@@ -890,6 +968,16 @@ class App:
         r.center = mouse
         draw_item_icon(self.screen, r, item_id)
 
+        # 图标只是首字不可读，跟随时把完整名字标在下方
+        text(
+            self.screen,
+            item_name(item_id),
+            theme.FS_TINY,
+            theme.TEXT,
+            (mouse[0], r.bottom + 8 * theme.S),
+            center=True,
+        )
+
         # 悬停棋子高亮，提示可装备
         target = self._piece_at_screen(mouse)
         if target is not None:
@@ -904,6 +992,110 @@ class App:
             else:
                 pygame.draw.circle(self.screen, theme.HP_GREEN, center, theme.CELL // 2, width=2)
 
+    # ---------- 悬停信息层 ----------
+
+    def _bench_base_counts(self) -> dict[str, int]:
+        """当前装备栏里各基础装备的数量（合成配方提示用）。"""
+        counts: dict[str, int] = {}
+        for it in self.game.you.item_bench:
+            if is_base_item(it.item_id):
+                counts[it.item_id] = counts.get(it.item_id, 0) + 1
+        return counts
+
+    def _hover_target(self):
+        """返回当前鼠标所指区域的信息 (records, accent)；只保留羁绊行与装备栏的悬停。"""
+        from .info import item_records, trait_records
+
+        mouse = pygame.mouse.get_pos()
+        you = self.game.you
+
+        # 左侧羁绊行：说明 + 各档位阈值
+        for rect, tid, count in self._trait_hits:
+            if rect.collidepoint(mouse):
+                return trait_records(tid, count), theme.TRAIT_COLORS.get(tid, theme.TRAIT_FALLBACK)
+
+        # 装备栏：属性 + 特效 + 当前能合的配方
+        iidx = item_slot_at(mouse)
+        if iidx is not None and iidx < len(you.item_bench):
+            item_id = you.item_bench[iidx].item_id
+            records = item_records(item_id, have=self._bench_base_counts())
+            accent = theme.GOLD if "+" in item_id else theme.ACCENT
+            return records, accent
+        return None
+
+    def _detail_anchor(self):
+        """单击选中的棋子当前应锚定的屏幕中心；棋子已不在场上返回 None。"""
+        d = self.detail
+        if d is None:
+            return None
+        owner, p = d["owner"], d["piece"]
+        for seat, who in ((self._seat_blue, self.game.you), (self._seat_red, self.game.enemy)):
+            if who is not owner:
+                continue
+            for cell, q in seat.items():
+                if q is p:
+                    return cell_rect(*cell).center
+        if p.pos is not None:
+            col, row = int(round(p.pos[0])), int(round(p.pos[1]))
+            if col in range(theme.BOARD_COLS) and row in range(theme.BOARD_ROWS) and p in owner.board:
+                return cell_rect(col, row).center
+        if p in owner.bench:
+            return bench_slot_rect(owner.bench.index(p)).center
+        return None
+
+    def _draw_hover_layer(self) -> None:
+        """信息层统统一画在最上层：棋子详情由左键单击开关，羁绊行/装备栏保留悬停。"""
+        s = theme.S
+        mouse = pygame.mouse.get_pos()
+
+        # 单击打开的棋子详情（棋盘 + 备战席，蓝/红都行）
+        if self.detail is not None:
+            anchor = self._detail_anchor()
+            if anchor is None:
+                self.detail = None
+            else:
+                from .info import unit_records
+
+                owner, p = self.detail["owner"], self.detail["piece"]
+                records = unit_records(owner, p)
+                accent = theme.GOLD if p.star >= 3 else theme.rarity(load_units()[p.tid].cost)["edge"]
+                px, py = anchor
+                draw_tip(
+                    self.screen,
+                    records,
+                    (px + int(14 * s), py - int(30 * s)),
+                    accent=accent,
+                )
+
+        # 拖装备时的合成结果预览
+        if self.drag is not None:
+            if self.drag.get("kind") == "item":
+                self._drag_combine_tip()
+            return
+
+        # 悬停 tooltip：羁绊行 / 装备栏
+        ctx = self._hover_target()
+        if ctx is not None:
+            records, accent = ctx
+            draw_tip(self.screen, records, (mouse[0] + 12 * s, mouse[1]), accent=accent)
+
+    def _drag_combine_tip(self) -> None:
+        """拖一件基础装备悬停在另一件上：显示合成结果预览。"""
+        from .info import combine_preview_records
+
+        drag = self.drag
+        you = self.game.you
+        idx = item_slot_at(drag["mouse"])
+        if idx is None or idx >= len(you.item_bench) or idx == drag["slot"]:
+            return
+        other = you.item_bench[idx]
+        if other is drag["item"]:
+            return
+        records = combine_preview_records(drag["item"].item_id, other.item_id)
+        if records:
+            mouse = drag["mouse"]
+            draw_tip(self.screen, records, (mouse[0] + 12 * theme.S, mouse[1]), accent=theme.GOLD)
+
     def _hover_cell(self):
         if not self.drag:
             return None
@@ -911,7 +1103,7 @@ class App:
         if cell is None:
             return None
         col, row = cell
-        if row > 1:  # 只能己方两行（core_row 0、1）
+        if row >= theme.BOARD_ROWS // 2:  # 只能己方半场四行（core_row 0..3）
             return None
         return cell
 
