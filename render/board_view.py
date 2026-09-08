@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from pathlib import Path
 
 import pygame
 
@@ -177,18 +178,48 @@ _SSAA_FACTOR = 2
 _AVATAR_CACHE: dict[tuple, pygame.Surface] = {}
 _FLASH_CACHE: dict[int, pygame.Surface] = {}
 
+# 棋子贴图：assets/units/<tid>.png（与 units.json 的 id 对齐）。
+# 有图时头像核心用贴图内嵌，缺图自动回退程序化头像，文件缺失只探测一次（负缓存）。
+_UNIT_TEX_DIR = Path(__file__).resolve().parent.parent / "assets" / "units"
+_TEX_CACHE: dict[str, pygame.Surface | None] = {}
+
+
+def _avatar_texture(tid: str) -> pygame.Surface | None:
+    """加载棋子贴图；无文件/加载失败返回 None 并负缓存，不阻塞游戏。"""
+    if tid in _TEX_CACHE:
+        return _TEX_CACHE[tid]
+    tex = None
+    path = _UNIT_TEX_DIR / f"{tid}.png"
+    if path.is_file():
+        try:
+            raw = pygame.image.load(str(path))
+        except pygame.error:
+            raw = None
+        if raw is not None:
+            try:
+                tex = raw.convert_alpha()
+            except pygame.error:
+                tex = raw  # 视频未初始化等场景：原图含透明通道也可直接使用
+    _TEX_CACHE[tid] = tex
+    return tex
+
 
 def _clear_caches() -> None:
     _AVATAR_CACHE.clear()
     _FLASH_CACHE.clear()
+    _TEX_CACHE.clear()
     _GRID_CACHE.clear()
 
 
 def _avatar(v: PieceVisual, size: int) -> pygame.Surface:
-    """程序化生成一个棋子头像：队伍光环 + 稀有度描边 + 渐变底 + 首字 + 星级。
+    """生成一个棋子头像：队伍光环 + 稀有度描边 + 星级，核心为贴图或程序首字。
 
     棋子在一局里外观不变（除了星级和生死），所以整张图缓存下来，
     每帧只做一次 blit，高分辨率下这是最大的一笔性能节省。
+
+    贴图规则（有图显图，没图按原先方式显示）：
+    - assets/units/<tid>.png 存在：头像核心用贴图圆形裁切内嵌；
+    - 缺图 / 阵亡：回退“渐变底 + 首字”程序化头像，观感与旧版一致。
 
     SSAA：先在 _SSAA_FACTOR 倍分辨率上绘制，再平滑缩小回目标尺寸，
     让圆边/圆环/渐变这些 pygame.draw 几何的边缘不带锯齿。
@@ -199,14 +230,41 @@ def _avatar(v: PieceVisual, size: int) -> pygame.Surface:
         return cached
 
     ss = _SSAA_FACTOR
-    hi = _avatar_raw(v, size * ss, theme.S * ss)
+    tex = _avatar_texture(v.tid) if v.alive else None  # 阵亡强制走灰色程序头像
+    hi = _avatar_raw(v, size * ss, theme.S * ss, tex)
     img = hi if ss <= 1 else pygame.transform.smoothscale(hi, (size, size))
     _AVATAR_CACHE[key] = img
     return img
 
 
-def _avatar_raw(v: PieceVisual, size: int, s: int) -> pygame.Surface:
-    """在指定像素尺寸上绘制头像主体；s 是线宽/偏移的基准缩放（SSAA 时同步放大）。"""
+def _paste_texture_core(
+    surf: pygame.Surface, c: tuple[int, int], inner_r: int, tex: pygame.Surface
+) -> None:
+    """把棋子贴图缩放到内圆并圆形裁切，贴进头像核心。
+
+    mask 用 per-pixel alpha 相乘把圆外裁成透明；本层画在 SSAA 高分辨率
+    surface 上，最后随整图平滑缩小，圆形边缘不带锯齿。
+    """
+    d = max(2, inner_r * 2)
+    if tex.get_size() == (d, d):
+        img = tex
+    else:
+        img = pygame.transform.smoothscale(tex, (d, d))
+    mask = pygame.Surface((d, d), pygame.SRCALPHA)
+    pygame.draw.circle(mask, (255, 255, 255, 255), (d // 2, d // 2), d // 2)
+    img = img.copy()
+    img.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+    surf.blit(img, (c[0] - d // 2, c[1] - d // 2))
+
+
+def _avatar_raw(
+    v: PieceVisual, size: int, s: int, tex: pygame.Surface | None = None
+) -> pygame.Surface:
+    """绘制头像主体；s 是线宽/偏移的基准缩放（SSAA 时同步放大）。
+
+    tex 提供时核心用贴图（不再画渐变底与首字），否则沿用程序化几何头像；
+    队伍光环 / 稀有度描边 / 星级环 / 顶部金星在两种模式下都保留。
+    """
     surf = pygame.Surface((size, size), pygame.SRCALPHA)
     c = (size // 2, size // 2)
     r = size // 2
@@ -218,9 +276,12 @@ def _avatar_raw(v: PieceVisual, size: int, s: int) -> pygame.Surface:
     pygame.draw.circle(surf, theme.shade(team_color, 0.55), c, r)
     pygame.draw.circle(surf, (10, 11, 15), c, r - max(1, 2 * s))
 
-    # 羁绊色渐变底：一圈一圈画同心圆近似径向渐变
     inner_r = r - max(2, 3 * s)
-    if inner_r > 2:
+    if tex is not None and inner_r >= 1:
+        # 有贴图：圆形裁切内嵌
+        _paste_texture_core(surf, c, inner_r, tex)
+    elif inner_r > 2:
+        # 无贴图回退：羁绊色渐变底（一圈圈同心圆近似径向渐变）
         trait = v.tag_color
         outer = theme.mix(trait, (18, 20, 27), 0.55)
         bright = theme.mix(trait, (255, 255, 255), 0.32)
@@ -235,15 +296,15 @@ def _avatar_raw(v: PieceVisual, size: int, s: int) -> pygame.Surface:
                 break
             pygame.draw.circle(surf, theme.mix(outer, bright, t), c, rr)
 
-    # 稀有度描边 + 星级描边
+    # 稀有度描边 + 星级环（画在核心之上，贴图/渐变两种模式都可见）
     rar = theme.rarity(v.cost)
     pygame.draw.circle(surf, rar["edge"], c, r - s, width=max(2, 3 * s))
     star_ring = theme.STAR_RING.get(v.star)
     if star_ring:
         pygame.draw.circle(surf, star_ring, c, r - max(3, 4 * s), width=max(1, 2 * s))
 
-    # 首字（大头像唯一的内容；名牌与羁绊角标已去掉，后续换圆形贴图）
-    if v.name:
+    # 首字：仅无贴图时绘制（贴图本身已提供形象）
+    if v.name and tex is None and inner_r > 2:
         fs = max(10, int(size * 0.52))
         glyph = v.name[0]
         dark = font(fs).render(glyph, True, (12, 13, 18))

@@ -139,6 +139,14 @@ python launcher.py sim --mirror 3000
 python launcher.py sim --fullgame 20 --players 8
 ```
 
+## 棋子贴图（可选）
+
+棋盘、备战席、商店卡等棋子头像支持外部贴图：**有图显图，没图自动按原先的程序化头像显示**。
+
+- 资源路径：`assets/units/<tid>.png`（`<tid>` 与 `data/units.json` 中的 `id` 严格对齐）。
+- 推荐格式：方形 PNG，透明底，主体居中、占画面直径约 80%；绘制时会被自动裁剪到圆形头像内，队伍光环/稀有度描边/星级金星/血条照常保留。
+- 阵亡或缺少贴图时，棋子会回退到现有的“羁绊色渐变底 + 首字”程序化头像，与旧版表现完全一致，不会报错。
+
 ## 音频与音效
 
 背景乐与 UI 音效全部由 `tools/gen_audio.py` 程序化合成（纯标准库、零依赖、
@@ -199,7 +207,8 @@ tft_2d/
 │  ├─ pool.json            #   卡池构成
 │  └─ level.json           #   人口经验曲线 + 各费用刷新概率
 ├─ assets/
-│  └─ audio/               #   程序化生成的 BGM / 音效 WAV（tools/gen_audio.py 重建）
+│  ├─ audio/               #   程序化生成的 BGM / 音效 WAV（tools/gen_audio.py 重建）
+│  └─ units/               #   可选：棋子头像贴图，按 <tid>.png 命名
 ├─ tests/                  # pytest 回归：数据完整性 / 驱动器确定性 / 内核不变量 / GUI 冒烟
 └─ tools/
    ├─ simulate.py          # 战斗模拟：单局 / --bench 平衡 / --mirror 自检 / --fullgame 整局仿真 / --check 数据自检
