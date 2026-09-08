@@ -76,3 +76,44 @@ def move_toward(
         return pos
 
     return clamp_pos(pos[0] + ux * step, pos[1] + uy * step)
+
+
+# ---------------------------------------------------------------------------
+# 六边形格拓扑（战斗以六边形格为单位移动、每格最多一个单位）
+#
+# 渲染层把棋盘画成蜂窝：显示行 = ROWS-1-core_row，奇数“显示行”整行右移半格。
+# 换回 core 行号后等价于：core 行为偶数的行错半格。据此定义：
+#   * core 行为偶数：上/下两行的邻列是 {c, c+1}
+#   * core 行为奇数：上/下两行的邻列是 {c-1, c}
+#   * 同行左右邻居恒为 {c-1, c+1}
+# 距离用轴向坐标（odd-r，r=显示行）闭式计算，与上述邻接关系严格一致。
+# ---------------------------------------------------------------------------
+
+def _axial(cell: tuple[int, int]) -> tuple[int, int]:
+    """(col, core_row) -> 轴向坐标 (q, r)。r 取显示行（自下而上，与 core 行相反）。"""
+    c, r = cell
+    rr = ROWS - 1 - r                 # 显示行
+    q = c - (rr - (rr & 1)) // 2
+    return q, rr
+
+
+def hex_neighbors(cell: tuple[int, int]) -> list[tuple[int, int]]:
+    """返回 cell 在棋盘范围内的 6 个六边形邻居（无重复）。"""
+    c, r = cell
+    if r % 2 == 0:
+        cand = ((c - 1, r), (c + 1, r),
+                (c, r - 1), (c + 1, r - 1),
+                (c, r + 1), (c + 1, r + 1))
+    else:
+        cand = ((c - 1, r), (c + 1, r),
+                (c - 1, r - 1), (c, r - 1),
+                (c - 1, r + 1), (c, r + 1))
+    return [(cc, rr) for cc, rr in cand if 0 <= cc < COLS and 0 <= rr < ROWS]
+
+
+def hex_distance(a: tuple[int, int], b: tuple[int, int]) -> int:
+    """两个格子的六边形距离（邻格步数）。"""
+    qa, ra = _axial(a)
+    qb, rb = _axial(b)
+    dq, dr = qa - qb, ra - rb
+    return (abs(dq) + abs(dr) + abs(dq + dr)) // 2

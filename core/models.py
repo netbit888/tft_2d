@@ -77,6 +77,10 @@ class Unit:
 
     x: float = 0.0
     y: float = 0.0
+    # 战斗格子化（需求3）：cell 是当前“占据/预定”的六边形格(col,row)；
+    # transit 表示逻辑格已切到 cell、但画面位置还在按移速滑向 cell 中心。
+    cell: tuple[int, int] = (0, 0)
+    transit: bool = False
 
     alive: bool = True
     attack_timer: float = 0.0

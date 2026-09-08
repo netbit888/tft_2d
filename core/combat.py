@@ -46,6 +46,8 @@ class Combat:
         self.by_uid: dict[int, Unit] = {}
         for u in list(blue) + list(red):
             u.uid = len(self.units) + 1
+            u.cell = (int(round(u.x)), int(round(u.y)))
+            u.transit = False
             self.units.append(u)
             self.by_uid[u.uid] = u
 
@@ -74,31 +76,48 @@ class Combat:
 
         # 先统一决策、后统一结算：同一 tick 内的攻击全部生效，
         # 不会因为出手顺序靠前就抹掉对方的攻击（允许同归于尽）。
-        moves: list[tuple[Unit, Unit]] = []
+        # 移动按六边形格进行（需求3）：先让正在滑行的单位落位/继续滑行，
+        # 再基于“每格一子”的占格表做移动与攻击决策。
+        for u in self.units:
+            if u.alive and u.transit:
+                self._glide(u)
+
+        # 占格表：每个六边形格同时最多存在一个存活单位（transit 单位占“预定”格）
+        occ: dict[tuple[int, int], Unit] = {u.cell: u for u in self.units if u.alive}
+
+        moves: list[tuple[Unit, tuple[int, int]]] = []
         attacks: list[tuple[Unit, Unit]] = []
 
         for u in self.units:
-            if not u.alive:
+            if not u.alive or u.transit:
                 continue
             target = self._acquire(u)
             if target is None:
                 continue
-            if grid.in_range(u.pos, target.pos, u.attack_range):
+            if self._in_range(u, target):
+                if target.transit:
+                    # 目标正滑向预定格：站在射程内等它落格，避免“打半路”的错位
+                    continue
                 u.attack_timer += DT
                 interval = 1.0 / max(u.attack_speed, 0.05)
                 if u.attack_timer >= interval:
                     u.attack_timer -= interval
                     attacks.append((u, target))
             else:
-                moves.append((u, target))
+                dest = self._plan_step(u, target, occ)
+                if dest is not None:
+                    # 立刻让出旧格并占住新格，杜绝同 tick 两个单位抢同一格
+                    occ.pop(u.cell, None)
+                    occ[dest] = u
+                    moves.append((u, dest))
 
         # 奇偶 tick 交替结算顺序，抵消残余的先后手效应
         if self.tick % 2 == 0:
             moves.reverse()
             attacks.reverse()
 
-        for u, target in moves:
-            self._move(u, target)
+        for u, dest in moves:
+            self._start_move(u, dest)
         for u, target in attacks:
             self._attack(u, target)
 
@@ -116,14 +135,91 @@ class Combat:
     def _emit(self, type_: str, **data) -> None:
         self.events.append(Event(self.tick, type_, data))
 
-    def _move(self, u: Unit, target: Unit) -> None:
-        nx, ny = grid.move_toward(u.pos, target.pos, u.move_speed, DT, u.attack_range)
-        if (nx, ny) != u.pos:
-            u.x, u.y = nx, ny
-            self._emit(EV_MOVE, name=u.name, team=u.team, uid=u.uid, x=round(nx, 2), y=round(ny, 2))
+    def _in_range(self, u: Unit, target: Unit) -> bool:
+        """射程判定改为六边形格距离；滑行未落格时不可攻击。"""
+        return (
+            not u.transit
+            and grid.hex_distance(u.cell, target.cell) <= u.attack_range
+        )
+
+    def _start_move(self, u: Unit, dest: tuple[int, int]) -> None:
+        """逻辑格立即切到 dest（调用方已保证该格空闲唯一），画面随后滑行过去。"""
+        u.cell = dest
+        u.transit = True
+
+    def _glide(self, u: Unit) -> None:
+        """把画面位置按移速平滑滑到当前逻辑格中心；完整落格后发一次移动事件。"""
+        cx, cy = float(u.cell[0]), float(u.cell[1])
+        dx, dy = cx - u.x, cy - u.y
+        dist = (dx * dx + dy * dy) ** 0.5
+        if dist < 1e-6:
+            u.x, u.y = cx, cy
+            u.transit = False
+            return
+        step = min(u.move_speed * DT, dist)
+        if step < dist:
+            u.x += dx / dist * step
+            u.y += dy / dist * step
+        else:
+            u.x, u.y = cx, cy
+            u.transit = False
+            self._emit(
+                EV_MOVE,
+                name=u.name,
+                team=u.team,
+                uid=u.uid,
+                x=round(cx, 2),
+                y=round(cy, 2),
+            )
+
+    def _plan_step(
+        self,
+        u: Unit,
+        target: Unit,
+        occ: dict[tuple[int, int], Unit],
+    ) -> tuple[int, int] | None:
+        """六边形格寻路：避开其它单位，找一条通往“目标落在攻击距离内”的空格
+        的最短路径，返回第一步要走的格子；无路可走时原地等待（返回 None）。
+        """
+        from collections import deque
+
+        start = u.cell
+        if occ.get(start) is not None and occ[start] is not u:
+            return None
+        prev: dict[tuple[int, int], tuple[int, int] | None] = {start: None}
+        queue: deque[tuple[int, int]] = deque([start])
+        tcell = target.cell
+        goal: tuple[int, int] | None = None
+        while queue:
+            node = queue.popleft()
+            if node != start and grid.hex_distance(node, tcell) <= u.attack_range:
+                goal = node
+                break
+            for nb in grid.hex_neighbors(node):
+                if nb in prev:
+                    continue
+                holder = occ.get(nb)
+                if holder is not None and holder is not u:
+                    continue
+                prev[nb] = node
+                queue.append(nb)
+        if goal is None:
+            return None
+        # 回溯到紧邻起点的那一步
+        cur: tuple[int, int] = goal
+        while prev[cur] != start:
+            parent = prev[cur]
+            if parent is None:
+                break
+            cur = parent
+        return cur
 
     def _acquire(self, u: Unit) -> Unit | None:
-        """锁定最近敌人；目标存活期间不换目标，避免来回抖动。"""
+        """锁定最近敌人；目标存活期间不换目标，避免来回抖动。
+
+        新目标只在“已落格（非 transit）”的敌人里挑选：滑行中的单位位置
+        尚未到达其逻辑格，瞄准它会带来画面错位。
+        """
         current = self.by_uid.get(u.target_uid) if u.target_uid else None
         if current is not None and current.alive:
             return current
@@ -131,13 +227,17 @@ class Combat:
         best: list[Unit] = []
         best_d = float("inf")
         for o in self.units:
-            if not o.alive or o.team == u.team:
+            if not o.alive or o.team == u.team or o.transit:
                 continue
-            d = grid.distance(u.pos, o.pos)
+            d = float(grid.hex_distance(u.cell, o.cell))
             if d < best_d - 1e-6:
                 best, best_d = [o], d
             elif abs(d - best_d) <= 1e-6:
                 best.append(o)
+        # 全部敌人都在滑行（尚未落格）时本 tick 无可选目标，原地等待
+        if not best:
+            u.target_uid = None
+            return None
         # 多个敌人等距时随机选取，避免固定顺序带来的方向性偏差
         chosen = best[0] if len(best) <= 1 else self.rng.choice(best)
         u.target_uid = chosen.uid if chosen else None
@@ -191,7 +291,9 @@ class Combat:
             hits = [
                 o
                 for o in self.units
-                if o.alive and o.team != u.team and grid.chebyshev(o.pos, target.pos) <= ab.radius
+                if o.alive
+                and o.team != u.team
+                and grid.hex_distance(o.cell, target.cell) <= ab.radius
             ]
             self._emit(
                 EV_CAST,
@@ -299,8 +401,10 @@ class Combat:
         if timeout:
             text += "（超时判定）"
         self._emit(EV_END, winner=winner, result=text, ticks=self.tick)
-        survivors: dict[str, int] = {}
-        hp_left: dict[str, float] = {}
+        # 队伍键补全（败方记 0），避免消费方因“全灭方缺键”报 KeyError
+        teams = {u.team for u in self.units}
+        survivors: dict[str, int] = {t: 0 for t in teams}
+        hp_left: dict[str, float] = {t: 0.0 for t in teams}
         for t in self._teams_alive():
             survivors[t] = len(self.alive_units(t))
             hp_left[t] = sum(u.hp for u in self.alive_units(t))

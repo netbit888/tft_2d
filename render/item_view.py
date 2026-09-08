@@ -93,10 +93,19 @@ def draw_combine_candidates(surface: pygame.Surface, bench: list, drag_item, dra
 # ---------- 8 人战况面板 ----------
 
 
-def draw_roster(surface: pygame.Surface, game) -> None:
-    """右侧 8 人战况：每名玩家的名字、血量、等级、淘汰状态。"""
+def draw_roster(
+    surface: pygame.Surface,
+    game,
+    selected: int = 0,
+    current_opp: int | None = None,
+) -> list[tuple[pygame.Rect, int]]:
+    """右侧 8 人战况：每名玩家的名字、血量、等级、淘汰状态。
+
+    selected 为当前观察对象（0=自己）；current_opp 标记本回合配对对手。
+    返回每行的 (命中矩形, 玩家索引)，供上层做点击切换观察视角。
+    """
     if len(game.players) <= 2:
-        return
+        return []
 
     bg = pygame.Rect(
         theme.ROSTER_X,
@@ -115,6 +124,7 @@ def draw_roster(surface: pygame.Surface, game) -> None:
         center=True,
     )
 
+    rows: list[tuple[pygame.Rect, int]] = []
     y = bg.y + 32 * theme.S
     for i, p in enumerate(game.players):
         # 玩家本人高亮
@@ -123,6 +133,13 @@ def draw_roster(surface: pygame.Surface, game) -> None:
         row = pygame.Rect(bg.x + 8 * theme.S, y, bg.width - 16 * theme.S, theme.ROSTER_ROW_H - 4 * theme.S)
         if row_color:
             pygame.draw.rect(surface, row_color, row, border_radius=6)
+        rows.append((row, i))
+
+        # 观察对象（金色外框）与"本回合对手"（青色细框）区分标记
+        if i == selected:
+            pygame.draw.rect(surface, theme.GOLD, row.inflate(3 * theme.S, 3 * theme.S), width=2, border_radius=7)
+        elif current_opp is not None and i == current_opp and p.is_alive and not is_you:
+            pygame.draw.rect(surface, theme.ACCENT, row.inflate(3 * theme.S, 3 * theme.S), width=1, border_radius=7)
 
         name = p.name if p.is_alive else f"✗ {p.name}"
         name_color = theme.TEXT if is_you else theme.TEXT_DIM
@@ -153,6 +170,7 @@ def draw_roster(surface: pygame.Surface, game) -> None:
             center=False,
         )
         y += theme.ROSTER_ROW_H
+    return rows
 
 
 def piece_item_badges(surface: pygame.Surface, rect: pygame.Rect, equip: list) -> None:

@@ -168,7 +168,8 @@ def run_mirror(n: int, seed: int, size: int = 4) -> None:
         for uid, col in zip(picks, cols):
             slot = "back" if tpls[uid].attack_range > 1 else "front"
             bp.append({"id": uid, "star": 1, "pos": [col, AUTO_ROW_ORDER["blue"][slot][0]]})
-            rp.append({"id": uid, "star": 1, "pos": [col, AUTO_ROW_ORDER["red"][slot][0]]})  # 上下镜像
+            # 六边形奇偶行错半格：纵向镜像时列号需取 6-col 才是真正的棋盘镜像
+            rp.append({"id": uid, "star": 1, "pos": [6 - col, AUTO_ROW_ORDER["red"][slot][0]]})
 
         r = Combat(
             build_team(bp, "blue"), build_team(rp, "red"), seed=rng.randint(0, 2**31 - 1)

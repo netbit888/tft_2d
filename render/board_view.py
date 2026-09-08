@@ -170,6 +170,10 @@ def visual_from_unit(unit) -> PieceVisual:
 
 # ---------- 头像（静态，全部缓存） ----------
 
+# SSAA：棋盘/头像/闪光盘这类静态资产，先在 _SSAA_FACTOR 倍分辨率上绘制
+# 再平滑缩小，消除 pygame.draw 几何边缘的锯齿。只在缓存生成时多花一次时间，每帧零开销。
+_SSAA_FACTOR = 2
+
 _AVATAR_CACHE: dict[tuple, pygame.Surface] = {}
 _FLASH_CACHE: dict[int, pygame.Surface] = {}
 
@@ -185,13 +189,24 @@ def _avatar(v: PieceVisual, size: int) -> pygame.Surface:
 
     棋子在一局里外观不变（除了星级和生死），所以整张图缓存下来，
     每帧只做一次 blit，高分辨率下这是最大的一笔性能节省。
+
+    SSAA：先在 _SSAA_FACTOR 倍分辨率上绘制，再平滑缩小回目标尺寸，
+    让圆边/圆环/渐变这些 pygame.draw 几何的边缘不带锯齿。
     """
     key = (v.tid, v.star, v.team, size, v.alive)
     cached = _AVATAR_CACHE.get(key)
     if cached is not None:
         return cached
 
-    s = theme.S
+    ss = _SSAA_FACTOR
+    hi = _avatar_raw(v, size * ss, theme.S * ss)
+    img = hi if ss <= 1 else pygame.transform.smoothscale(hi, (size, size))
+    _AVATAR_CACHE[key] = img
+    return img
+
+
+def _avatar_raw(v: PieceVisual, size: int, s: int) -> pygame.Surface:
+    """在指定像素尺寸上绘制头像主体；s 是线宽/偏移的基准缩放（SSAA 时同步放大）。"""
     surf = pygame.Surface((size, size), pygame.SRCALPHA)
     c = (size // 2, size // 2)
     r = size // 2
@@ -247,18 +262,21 @@ def _avatar(v: PieceVisual, size: int) -> pygame.Surface:
             pygame.draw.circle(surf, (12, 13, 18), (px, py), pip + max(1, s))
             pygame.draw.circle(surf, theme.GOLD, (px, py), pip)
 
-    _AVATAR_CACHE[key] = surf
     return surf
 
 
 def _flash_disc(size: int) -> pygame.Surface:
-    """受击闪白用的白色圆盘，按尺寸缓存。"""
-    surf = _FLASH_CACHE.get(size)
-    if surf is None:
-        surf = pygame.Surface((size, size), pygame.SRCALPHA)
-        pygame.draw.circle(surf, (255, 255, 255, 255), (size // 2, size // 2), size // 2)
-        _FLASH_CACHE[size] = surf
-    return surf
+    """受击闪白用的白色圆盘，按尺寸缓存（同样做 SSAA，边缘平滑）。"""
+    cached = _FLASH_CACHE.get(size)
+    if cached is None:
+        ss = _SSAA_FACTOR
+        hi = pygame.Surface((size * ss, size * ss), pygame.SRCALPHA)
+        pygame.draw.circle(
+            hi, (255, 255, 255, 255), (size * ss // 2, size * ss // 2), size * ss // 2
+        )
+        cached = hi if ss <= 1 else pygame.transform.smoothscale(hi, (size, size))
+        _FLASH_CACHE[size] = cached
+    return cached
 
 
 def piece_size(rect: pygame.Rect, scale: float = 1.0) -> int:
@@ -339,22 +357,31 @@ def draw_grid(surface: pygame.Surface) -> None:
 
 
 def _render_grid() -> pygame.Surface:
+    """以 _SSAA_FACTOR 倍分辨率生成静态棋盘，再平滑缩小回目标尺寸。
+
+    六边形填充/描边全走 pygame.draw.polygon（原生无抗锯齿），
+    在 2x 像素密度上画一遍再缩小，是成本最低的全棋盘平滑方案。
+    """
     s = theme.S
-    w, h = theme.BOARD_W, theme.BOARD_H
+    ss = _SSAA_FACTOR
+    w, h = theme.BOARD_W * ss, theme.BOARD_H * ss
     surf = pygame.Surface((w, h))
     surf.fill(theme.BG_SOFT)
 
     # 底板（把边缘包住，让棋盘有个整体轮廓）
-    board_bg = pygame.Rect(4, 4, w - 8, h - 8)
-    panel(surf, board_bg, (24, 27, 35), radius=12 * s, border=theme.BORDER_SOFT, width=1)
+    board_bg = pygame.Rect(4 * ss, 4 * ss, w - 8 * ss, h - 8 * ss)
+    panel(surf, board_bg, (24, 27, 35), radius=12 * s * ss, border=theme.BORDER_SOFT, width=1)
 
     own_top = theme.BOARD_ROWS // 2  # 己方 core row 0..3
     for core_row in range(theme.BOARD_ROWS):
         for col in range(theme.BOARD_COLS):
             # surface 贴到 (BOARD_X, BOARD_Y)，这里必须用相对棋盘原点的局部坐标
             cx, cy = cell_center(col, core_row)
-            lx, ly = cx - theme.BOARD_X, cy - theme.BOARD_Y
-            pts = [(x - theme.BOARD_X, y - theme.BOARD_Y) for x, y in cell_polygon(col, core_row)]
+            lx, ly = (cx - theme.BOARD_X) * ss, (cy - theme.BOARD_Y) * ss
+            pts = [
+                ((x - theme.BOARD_X) * ss, (y - theme.BOARD_Y) * ss)
+                for x, y in cell_polygon(col, core_row)
+            ]
 
             if core_row < own_top:  # 己方半场（屏幕下半）
                 base = theme.SELF_ROW_TINT if (col + core_row) % 2 == 0 else theme.shade(
@@ -368,11 +395,16 @@ def _render_grid() -> pygame.Surface:
             # 内侧暗一点，做出一点厚度
             inner = [(x, ly + (y - ly) * 0.88) for x, y in pts]
             pygame.draw.polygon(surf, theme.shade(base, 0.86), inner)
-            pygame.draw.polygon(surf, theme.BORDER, pts, width=max(1, s))
+            pygame.draw.polygon(surf, theme.BORDER, pts, width=max(1, s * ss))
 
     # 中线（两军交火分界）
     mid_y = h // 2
-    pygame.draw.line(surf, theme.ACCENT, (4, mid_y), (w - 4, mid_y), max(2, 2 * s))
+    pygame.draw.line(
+        surf, theme.ACCENT, (4 * ss, mid_y), (w - 4 * ss, mid_y), max(2, 2 * s * ss)
+    )
+
+    if ss > 1:
+        return pygame.transform.smoothscale(surf, (theme.BOARD_W, theme.BOARD_H))
     return surf
 
 

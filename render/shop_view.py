@@ -6,6 +6,8 @@ S2 的拖拽会复用这里的 bench_slot_at / shop_card_at 做命中检测。
 
 from __future__ import annotations
 
+import math
+
 import pygame
 
 from core.loader import load_units
@@ -104,8 +106,17 @@ def _rarity_header(surface: pygame.Surface, rect: pygame.Rect, rar: dict) -> Non
         )
 
 
-def draw_shop(surface: pygame.Surface, slots) -> None:
-    """商店卡：极简 —— 只显示名字 + 费用徽章 + 稀有度描边，其余一律不画。"""
+def draw_shop(
+    surface: pygame.Surface,
+    slots,
+    hints: list[int] | None = None,
+    t: float = 0.0,
+) -> None:
+    """商店卡：名字 + 费用徽章 + 稀有度描边。
+
+    hints 与 slots 等长：hints[i] 为 2/3 表示再买这张即可合成到对应星级
+    （需求2：可升星提示），0/None 不标记。t 为全局时间，用来做呼吸光环。
+    """
     s = theme.S
 
     for i, item in enumerate(slots):
@@ -117,6 +128,7 @@ def draw_shop(surface: pygame.Surface, slots) -> None:
 
         tpl = load_units()[item.tid]
         rar = theme.rarity(item.cost)
+        up = hints[i] if hints else 0
 
         panel(surface, rect, rar["fill"], radius=10, border=rar["edge"], width=max(2, 2 * s))
         _rarity_header(surface, rect, rar)
@@ -129,6 +141,22 @@ def draw_shop(surface: pygame.Surface, slots) -> None:
             theme.TEXT,
             (rect.x + 12 * s, rect.y + int(rect.height * 0.40)),
         )
+
+        # 可升星提示（需求2）：金色呼吸外框 + 左上角星级徽章
+        if up >= 2:
+            pulse = 0.5 + 0.5 * math.sin(t * 5)
+            ring = theme.mix(theme.GOLD, (255, 240, 190), 0.3 + 0.6 * pulse)
+            pygame.draw.rect(
+                surface,
+                ring,
+                rect.inflate(int(9 * s), int(9 * s)),
+                width=max(2, int(2 * s)),
+                border_radius=int(13 * s),
+            )
+            upb = pygame.Rect(0, 0, int(38 * s), int(22 * s))
+            upb.topleft = (rect.x + 10 * s, rect.y + int(rect.height * 0.20))
+            panel(surface, upb, theme.GOLD, radius=max(2, 4 * s), border=(12, 13, 18), width=1)
+            text(surface, f"升{up}星", theme.FS_TINY, (22, 16, 4), upb.center, center=True)
 
         # 费用徽章
         badge = pygame.Rect(0, 0, int(34 * s), int(22 * s))

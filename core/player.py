@@ -201,3 +201,27 @@ def try_upgrade(player: Player) -> list[str]:
     if logs:
         player.promote_from_bench()  # 合成腾出的空位立刻补上
     return logs
+
+
+def next_star_if_buy(player: Player, tid: str) -> int:
+    """模拟“再买一张 tid”后能否触发三合一，返回合成到的目标星级（2 或 3）。
+
+    只读统计、不改动任何状态；合成规则与 try_upgrade 完全一致。
+    备战席已满（买了也放不下）或不会触发合成时返回 0。
+    """
+    if len(player.bench) >= MAX_BENCH:
+        return 0
+    n1 = n2 = 0
+    for p in list(player.board) + list(player.bench):
+        if p.tid == tid:
+            if p.star == 1:
+                n1 += 1
+            elif p.star == 2:
+                n2 += 1
+    n1 += 1  # 假想买到这一张（新棋子都是 1 星）
+    up2 = n1 // 3       # 1 星三合一，能出几个 2 星
+    n2 += up2
+    n1 %= 3
+    if n2 >= 3:         # 2 星再合成 3 星
+        return 3
+    return 2 if up2 > 0 else 0

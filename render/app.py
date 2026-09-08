@@ -30,11 +30,13 @@ from core.items import (
     item_name,
 )
 from core.loader import load_traits, load_units
+from core.player import next_star_if_buy
 from core.shop import REFRESH_COST, buy, refresh_shop, sell_piece
 from core.traits import count_traits_from_tids
 
 from . import theme
 from .assets import enable_dpi_awareness, render, text
+from .audio import Audio
 from .battle_view import BattleView
 from .board_view import (
     _clear_caches,
@@ -76,6 +78,11 @@ class App:
     def __init__(self, game, log_to_console: bool = True, scale: int | None = None) -> None:
         # 必须在 pygame.init() 之前声明 DPI 感知，否则 2560x1600 会被系统再缩放糊掉
         enable_dpi_awareness()
+        # 音频：用与 WAV 资源一致的采样率先设定 mixer（失败不影响启动）
+        try:
+            pygame.mixer.pre_init(22050, -16, 2, 512)
+        except Exception:
+            pass
         pygame.init()
 
         info = pygame.display.Info()
@@ -111,6 +118,15 @@ class App:
         self._press: dict | None = None
         self.detail: dict | None = None  # {"owner": Player, "piece": Piece}
 
+        # 观察视角（需求1）：默认 0=自己；>0 表示点选了某台电脑观察其棋盘/羁绊
+        self._view = 0
+        self._roster_rows: list = []  # 战况面板可点行的命中区 [(rect, index)]
+
+        # 音频：先开部署曲；无声卡/缺资源则整体禁用，不影响运行
+        self.audio = Audio()
+        if self.audio.enabled:
+            self.audio.music.play("deploy")
+
         # 悬停信息层：每帧由 draw_teams/_draw_traits 更新
         self._seat_blue: dict = {}
         self._seat_red: dict = {}
@@ -138,6 +154,70 @@ class App:
             (0, 0, theme.BTN_NEXT_W, theme.BTN_NEXT_H), "下一回合", theme.ACCENT, pulse=True
         )
 
+    # ---------- 观察视角（需求1：默认看自己，点击切对手/电脑，编号随名显示） ----------
+
+    def _view_index(self) -> int:
+        g = self.game
+        if 0 < self._view < len(g.players):
+            return self._view
+        return 0
+
+    def _view_player(self):
+        """当前观察到的玩家（view=自己时即自己）。"""
+        return self.game.players[self._view_index()]
+
+    def _red_owner(self):
+        """部署阶段画在红色半场的玩家；观察自己（默认）时返回 None=不显示对手。"""
+        idx = self._view_index()
+        if idx == 0:
+            return None
+        return self.game.players[idx]
+
+    def _bar_target(self):
+        """右侧血条显示的对象：默认显示本回合配对对手（含电脑编号），观察电脑时显示该电脑。"""
+        g = self.game
+        idx = self._view_index()
+        if idx != 0:
+            return g.players[idx]
+        return g.players[g.current_opponent]
+
+    def _set_view(self, idx: int) -> None:
+        g = self.game
+        if idx < 0 or idx >= len(g.players):
+            return
+        if idx != 0 and not g.players[idx].is_alive:
+            return
+        if self._view != idx:
+            self._view = idx
+            self.detail = None  # 换人观察时收起旧详情
+
+    def _toggle_view(self) -> None:
+        g = self.game
+        if self._view_index() == 0:
+            opp = g.current_opponent
+            if g.players[opp].is_alive:
+                self._set_view(opp)
+        else:
+            self._set_view(0)
+
+    def _hp2_zone(self) -> pygame.Rect:
+        """右侧血条（标签+条+数字）整体的点击区：1v1 用它切换观察视角。"""
+        return pygame.Rect(
+            theme.HP2_X - 8 * theme.S,
+            theme.HP_BAR_Y - 16 * theme.S,
+            40 * theme.S + theme.HP_BAR_W + 16 * theme.S,
+            theme.HP_BAR_H + 22 * theme.S,
+        )
+
+    def _shop_hints(self) -> list[int]:
+        """每张未售商店卡：再买一张能否触发升星（返回合成目标 2/3 星，否则 0）。"""
+        shop = self.game.shop_you
+        out = [0] * len(shop.slots)
+        for i, item in enumerate(shop.slots):
+            if not item.sold:
+                out[i] = next_star_if_buy(self.game.you, item.tid)
+        return out
+
     # ================= 主循环 =================
 
     def run(self) -> None:
@@ -146,6 +226,8 @@ class App:
             self.time += dt
             for event in pygame.event.get():
                 self.handle_event(event)
+            if self.audio.enabled:
+                self.audio.update(dt)
             if self.phase == self.PHASE_BATTLE and self.battle is not None:
                 self.battle.update(dt)
             self._update_held_xp(dt)
@@ -172,8 +254,11 @@ class App:
 
     def _do_upgrade(self) -> None:
         before = self.game.you.gold
+        level_before = self.game.you.level
         self.message = buy_xp(self.game.you)
         self._push_gold_delta(before)
+        if self.game.you.level > level_before:  # 人口上限提升
+            self.audio.sfx.play("star")
 
     def _update_fx(self, dt: float) -> None:
         for f in self.floaters + self.fx:
@@ -198,6 +283,11 @@ class App:
         if event.type == pygame.QUIT:
             self.running = False
             return
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
+            if self.audio.enabled:
+                muted = self.audio.toggle_muted()
+                self.message = "已静音（再按 M 恢复）" if muted else "已恢复声音"
+            return
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             if self.detail is not None:  # 先关详情，再按才退出
                 self.detail = None
@@ -214,6 +304,7 @@ class App:
                 before = self.game.you.gold
                 self.message = refresh_shop(self.game.you, self.game.shop_you)
                 self._push_gold_delta(before)
+                self.audio.sfx.play("refresh" if self.game.you.gold < before else "error")
             elif self.btn_xp.handle(event):
                 self._do_upgrade()  # 单击立即升一次
                 self.xp_held = True  # 按住不放则由 _update_held_xp 连升
@@ -221,6 +312,7 @@ class App:
                 you = self.game.you
                 you.locked = not you.locked
                 self.message = "商店已锁定（下回合不刷新）" if you.locked else "商店已解锁"
+                self.audio.sfx.play("lock")
             elif self.btn_fight.handle(event):
                 self.start_battle()
             else:
@@ -237,6 +329,14 @@ class App:
     def handle_deploy(self, event: pygame.event.Event) -> None:
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
+                # 观察视角切换（需求1）：右侧血条 / 战况面板行
+                if self._hp2_zone().collidepoint(event.pos):
+                    self._toggle_view()
+                    return
+                for row_rect, pidx in self._roster_rows:
+                    if row_rect.collidepoint(event.pos):
+                        self._set_view(pidx)
+                        return
                 idx = shop_card_at(event.pos)
                 if idx is not None:
                     self.buy_card(idx)
@@ -279,7 +379,9 @@ class App:
                 return you, p
             p = self._seat_red.get(cell)
             if p is not None:
-                return self.game.enemy, p
+                owner = self._red_owner()  # 8 人局可观察任意电脑，不能写死 g.enemy
+                if owner is not None:
+                    return owner, p
         idx = bench_slot_at(pos)
         if idx is not None and idx < len(you.bench):
             return you, you.bench[idx]
@@ -341,10 +443,12 @@ class App:
         if target is not None:
             if len(target.equip) >= MAX_ITEMS_PER_PIECE:
                 self.message = f"{item_name(item.item_id)} 无法装备：已满 {MAX_ITEMS_PER_PIECE} 件"
+                self.audio.sfx.play("error")
                 return
             you.item_bench.remove(item)
             target.equip.append(item)
             self.message = f"{item_name(item.item_id)} 已装备"
+            self.audio.sfx.play("equip")
             return
 
         # 拖到装备栏另一个格子 = 合成（两件基础装备）
@@ -363,6 +467,7 @@ class App:
                 parts = tuple(key.split("+", 1))
                 you.item_bench.append(ItemInstance(key, components=parts))
                 self.message = f"合成 {item_name(key)}！"
+                self.audio.sfx.play("combine")
                 self.fx.append(
                     {
                         "kind": "star",
@@ -411,6 +516,8 @@ class App:
             before = you.gold
             self.message = sell_piece(you, piece)
             self._push_gold_delta(before)
+            if you.gold > before:
+                self.audio.sfx.play("sell")
             return
 
         self.message = "放回了原处"
@@ -453,8 +560,11 @@ class App:
         self._push_gold_delta(before)
 
         if tid is None or you.gold == before:
+            if tid is not None:
+                self.audio.sfx.play("error")  # 有目标卡却没扣钱：购买失败
             return  # 没买成（金币不足 / 已售出 / 备战席满）
 
+        self.audio.sfx.play("buy")
         # 卡片飞入备战席
         dst = bench_slot_rect(min(bench_before, theme.BENCH_SLOTS - 1)).center
         self.fx.append(
@@ -477,6 +587,7 @@ class App:
                     self.fx.append(
                         {"kind": "star", "pos": pos, "cost": cost, "life": 0.7, "total": 0.7}
                     )
+                    self.audio.sfx.play("star")
 
     def _push_gold_delta(self, before: int) -> None:
         delta = self.game.you.gold - before
@@ -509,6 +620,8 @@ class App:
                 self.message = sell_piece(you, piece)
                 self._push_gold_delta(before)
                 self._close_detail_of(piece)
+                if you.gold > before:
+                    self.audio.sfx.play("sell")
                 return
         idx = bench_slot_at(pos)
         if idx is not None and idx < len(you.bench):
@@ -516,6 +629,8 @@ class App:
             self.message = sell_piece(you, piece)
             self._push_gold_delta(before)
             self._close_detail_of(piece)
+            if you.gold > before:
+                self.audio.sfx.play("sell")
 
     # ================= 战斗与回合 =================
 
@@ -527,6 +642,9 @@ class App:
         """
         g = self.game
         self.detail = None  # 进入战斗先收起棋子详情
+
+        self.audio.sfx.play("fight")
+        self.audio.music.play("battle")
 
         # 所有 AI 运营
         for i, p in enumerate(g.players):
@@ -575,12 +693,30 @@ class App:
             if p.hp <= 0:
                 p.alive = False
 
+        # 正在观察的电脑被淘汰则回到自己视角
+        idx = self._view_index()
+        if idx != 0 and not g.players[idx].is_alive:
+            self._view = 0
+
         self.result_title = self._title_of(result)
+        opp = g.players[g.current_opponent]  # 本回合真实对手（8 人局每回合变化）
         self.result_lines = [
             settle_msg,
-            f"你 {g.you.hp} HP   对手 {g.enemy.hp} HP",
+            f"你 {g.you.hp} HP   {opp.name} {opp.hp} HP",
         ]
         self.phase = self.PHASE_OVER if g.is_over() else self.PHASE_RESULT
+
+        # 战歌切回：一次性 victory/defeat jingle，播完自动回部署曲（终局则保持安静）
+        if result is None:
+            self.audio.music.play("deploy")
+        else:
+            after = "deploy" if self.phase != self.PHASE_OVER else None
+            if result.winner == "blue":
+                self.audio.music.play_once("victory", after=after)
+            elif result.winner == "red":
+                self.audio.music.play_once("defeat", after=after)
+            else:
+                self.audio.music.play("deploy")
 
         if self.phase == self.PHASE_OVER:
             self.result_lines.append(g.winner())
@@ -603,6 +739,9 @@ class App:
         self.game.round += 1
         self.game.begin_round()
         self.phase = self.PHASE_DEPLOY
+        self._view = 0  # 新回合默认回到自己视角
+        self._roster_rows = []
+        self.audio.music.play("deploy")
         self.message = ""
         self.detail = None
         self.banner = {"text": f"回合 {self.game.round}", "life": 1.25, "total": 1.25}
@@ -628,7 +767,12 @@ class App:
             draw_grid(self.screen)
             self.draw_teams()
             draw_bench(self.screen, self.visible_bench())
-            draw_shop(self.screen, self.game.shop_you.slots)
+            draw_shop(
+                self.screen,
+                self.game.shop_you.slots,
+                hints=self._shop_hints(),
+                t=self.time,
+            )
             self.draw_hints()
             self.draw_drag()
 
@@ -681,8 +825,13 @@ class App:
             )
 
     def draw_roster_ui(self) -> None:
-        """8 人战况面板。"""
-        draw_roster(self.screen, self.game)
+        """8 人战况面板：支持点击行切换观察视角。"""
+        self._roster_rows = draw_roster(
+            self.screen,
+            self.game,
+            selected=self._view_index(),
+            current_opp=self.game.current_opponent,
+        )
 
     # ---------- 顶栏 ----------
 
@@ -766,7 +915,11 @@ class App:
             x += theme.ODDS_GAP
 
     def draw_hp_row(self) -> None:
-        """备战席上方一行：你/对手血条 + 上场数。"""
+        """备战席上方一行：你/当前对手血条 + 上场数。
+
+        需求1：右侧血条默认显示“本回合配对对手”，名字即带电脑编号；
+        观察某台电脑时切换到该电脑。点击右侧血条可在 1v1/默认 下快速往返。
+        """
         g = self.game
         self.draw_hp_bar("你", theme.HP1_X, g.you.hp, theme.TEAM_COLORS["blue"])
         board_count = len(g.you.board)
@@ -779,10 +932,36 @@ class App:
             pop_color,
             (theme.POP_X, theme.HP_BAR_Y - 2 * theme.S),
         )
-        self.draw_hp_bar("对手", theme.HP2_X, g.enemy.hp, theme.TEAM_COLORS["red"])
 
-    def draw_hp_bar(self, label: str, x: int, hp: int, color) -> None:
-        text(self.screen, label, theme.FS_SMALL, theme.TEXT_DIM, (x, theme.HP_BAR_Y - 3 * theme.S))
+        target = self._bar_target()
+        viewing = self._view_index() != 0
+        self.draw_hp_bar(
+            target.name,
+            theme.HP2_X,
+            target.hp,
+            theme.TEAM_COLORS["red"],
+            label_color=theme.GOLD if viewing else None,
+        )
+        # 部署阶段给右侧血条画一个可点击的提示框（观察电脑 / 返回自己）
+        if self.phase == self.PHASE_DEPLOY:
+            zone = self._hp2_zone()
+            hovered = zone.collidepoint(pygame.mouse.get_pos())
+            pygame.draw.rect(
+                self.screen,
+                theme.GOLD if hovered else theme.BORDER,
+                zone,
+                width=1,
+                border_radius=8,
+            )
+
+    def draw_hp_bar(self, label: str, x: int, hp: int, color, label_color=None) -> None:
+        text(
+            self.screen,
+            label,
+            theme.FS_SMALL,
+            label_color if label_color is not None else theme.TEXT_DIM,
+            (x, theme.HP_BAR_Y - 3 * theme.S),
+        )
         rect = pygame.Rect(x + 40 * theme.S, theme.HP_BAR_Y, theme.HP_BAR_W, theme.HP_BAR_H)
         bar(self.screen, rect, hp / 100.0, color, bg=(28, 30, 38), radius=rect.height // 2)
         text(
@@ -807,7 +986,8 @@ class App:
         self._trait_hits = []
 
         y = rect.y + 12 * theme.S
-        for title, player in (("你的羁绊", self.game.you), ("电脑的羁绊", self.game.enemy)):
+        second = self._bar_target()  # 右侧血条同一对象：对手编号随其名字显示
+        for title, player in (("你的羁绊", self.game.you), (f"{second.name} 的羁绊", second)):
             text(self.screen, title, theme.FS_NORMAL, theme.TEXT, (rect.x + 12 * theme.S, y))
             y += 32 * theme.S
             y = self._draw_traits(player, rect.x + 12 * theme.S, y, rect.width - 24 * theme.S)
@@ -889,11 +1069,20 @@ class App:
         return [x for x in self.game.you.bench if x is not p]
 
     def draw_teams(self) -> None:
-        g = self.game
+        """需求1：默认只显示自己的棋子；点选某电脑后切换到只显示该电脑的棋子。
+
+        开战/回放阶段由 BattleView 画双方，不受这里影响（“开战后双方可见”）。
+        """
         skip = self.drawing_piece()
-        you_board = [p for p in g.you.board if p is not skip]
-        self._seat_blue = self._draw_team(you_board, "blue")
-        self._seat_red = self._draw_team(g.enemy.board, "red")
+        self._seat_blue = {}
+        self._seat_red = {}
+        owner = self._red_owner()
+        if owner is None:  # 默认视角：自己
+            you_board = [p for p in self.game.you.board if p is not skip]
+            self._seat_blue = self._draw_team(you_board, "blue")
+        else:  # 观察某台电脑：显示其红色半场
+            tboard = [p for p in owner.board if p is not skip]
+            self._seat_red = self._draw_team(tboard, "red")
 
     def _draw_team(self, pieces, team: str) -> dict:
         """按站位画一队，并返回 格子 -> 棋子 的反查表（命中/详情用）。"""
@@ -909,6 +1098,13 @@ class App:
         msgs = [HINT]
         if you.bench:
             msgs.append(f"备战席还有 {len(you.bench)} 个棋子未上场（开战会自动补位）")
+        # 需求1：观察视角提示
+        if self._view_index() != 0:
+            msgs.append(f"正在观察 {self._view_player().name} 的棋子，点右侧血条返回自己")
+        elif len(self.game.players) <= 2:
+            msgs.append("点右侧血条可查看电脑的棋盘")
+        else:
+            msgs.append("战况面板点对手名字可查看其棋盘")
         if self.message:
             msgs.append(self.message)
         text(self.screen, "   |   ".join(msgs), theme.FS_TINY, theme.TEXT_DIM, (theme.PAD, theme.HINT_Y))
@@ -1029,7 +1225,7 @@ class App:
         if d is None:
             return None
         owner, p = d["owner"], d["piece"]
-        for seat, who in ((self._seat_blue, self.game.you), (self._seat_red, self.game.enemy)):
+        for seat, who in ((self._seat_blue, self.game.you), (self._seat_red, self._red_owner())):
             if who is not owner:
                 continue
             for cell, q in seat.items():
