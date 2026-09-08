@@ -1,0 +1,4 @@
+# 图形界面需要（M2/S1 起）：pip install -r requirements.txt
+pygame-ce>=2.5.0
+
+# 战斗内核（core/）本身无第三方依赖，纯标准库即可运行命令行版 play.py

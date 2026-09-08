@@ -1,0 +1,34 @@
+{
+  "warrior": {
+    "name": "战士",
+    "desc": "战士获得额外攻击力",
+    "tiers": [
+      { "count": 2, "mods": { "ad_flat": 12 } },
+      { "count": 4, "mods": { "ad_flat": 30 } }
+    ]
+  },
+  "guardian": {
+    "name": "护卫",
+    "desc": "护卫获得额外护甲与魔抗",
+    "tiers": [
+      { "count": 2, "mods": { "armor_flat": 20, "mr_flat": 15 } },
+      { "count": 3, "mods": { "armor_flat": 45, "mr_flat": 35 } }
+    ]
+  },
+  "mage": {
+    "name": "法师",
+    "desc": "法师获得额外法术强度，技能伤害更高",
+    "tiers": [
+      { "count": 2, "mods": { "ap_flat": 30 } },
+      { "count": 3, "mods": { "ap_flat": 75 } }
+    ]
+  },
+  "swift": {
+    "name": "迅捷",
+    "desc": "迅捷单位获得额外攻击速度",
+    "tiers": [
+      { "count": 2, "mods": { "attack_speed_pct": 0.15 } },
+      { "count": 4, "mods": { "attack_speed_pct": 0.35 } }
+    ]
+  }
+}
