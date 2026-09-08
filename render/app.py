@@ -1133,7 +1133,17 @@ class App:
     # ---------- 棋盘 / 队伍 ----------
 
     def drawing_piece(self):
-        return self.drag["piece"] if self.drag else None
+        """当前正在拖拽的棋子；只有棋子拖拽（kind=="piece"）才返回。
+
+        拖装备（kind=="item"）时字典没有 piece 键——这里必须返回 None，
+        否则 draw_teams / visible_bench 会对装备拖拽取 drag["piece"] 抛 KeyError。
+        注意：即使装备是从棋子身上拖起的（换装），源棋子也仍在原位要正常绘制，
+        因此不能按“有没有 piece 键”判断，只能按 kind。
+        """
+        drag = self.drag
+        if drag and drag.get("kind") == "piece":
+            return drag.get("piece")
+        return None
 
     def visible_bench(self):
         p = self.drawing_piece()
