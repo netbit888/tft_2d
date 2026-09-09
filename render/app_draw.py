@@ -33,6 +33,7 @@ from .board_view import (
     draw_placements,
     visual_from_tid,
 )
+from .champ_view import draw_champ_picker
 from .info import (
     combine_preview_records,
     draw_tip,
@@ -57,8 +58,12 @@ class AppDrawMixin:
     """纯绘制：HUD / 棋盘队伍 / 悬停层 / 特效 / 结果面板。"""
 
     def draw_armory(self) -> None:
-        """把自选台（当前页）画在信息层之上。"""
+        """把装备自选台（当前页）画在信息层之上。"""
         draw_armory(self.screen, self.armory_tab)
+
+    def draw_champ_picker(self) -> None:
+        """把棋子自选栏（当前费用页）画在信息层之上。"""
+        draw_champ_picker(self.screen, self.picker_cost)
 
     def draw_op_buttons(self) -> None:
         """左下角：刷新 + 购买经验按钮（金铲铲风格垂直堆叠）。"""
@@ -375,7 +380,7 @@ class AppDrawMixin:
 
     def draw_hints(self) -> None:
         you = self.game.you
-        msgs = [HINT, "F2=装备自选台"]
+        msgs = [HINT, "F2=装备自选台", "F3=棋子自选栏"]
         if you.bench:
             msgs.append(f"备战席还有 {len(you.bench)} 个棋子未上场（开战会自动补位）")
         # 需求1：观察视角提示

@@ -5,7 +5,11 @@
 - 页 1「散件」：列出全部基础装备，点任意散件获得 1 件（可连点）；
   散件可直接佩戴，也可在装备栏 / 棋子身上两两拖拽合成成装；
 - 顶部 tab 切换页面，面板高度随当前页行数自适应；
-  几何计算集中在 armory_geometry(tab)，点击命中与绘制共用同一份数据。
+  几何计算集中在 overlay_geometry / armory_geometry，点击命中与绘制共用同一份数据。
+
+模块同时提供通用的自选台骨架（overlay_geometry + draw_overlay）：顶部标题、右上
+关闭、顶部 N 个页签、网格格子与脚注；棋子自选栏（render/champ_view，F3）复用这套
+骨架，只是把"每格画装备图标"换成"每格画棋子头像"。
 """
 
 from __future__ import annotations
@@ -37,10 +41,11 @@ def armory_entries(tab: int = 0) -> list[str]:
     return list(load_items()["combine"].keys()) + list(special_item_ids())
 
 
-def armory_geometry(tab: int = 0) -> dict:
-    """计算面板矩形、关闭按钮、顶部 tab 与每个格子的命中区（纯几何，绘制/点击共用）。
+def overlay_geometry(entries: list, tab_count: int) -> dict:
+    """通用自选台几何：面板矩形、关闭按钮、顶部 tab 与每个格子的命中区。
 
-    面板高度随当前页行数自适应（散件页内容少、面板矮），水平居中位置不变。
+    entries 是当前页的条目（顺序与格子一一对应）；tab_count 决定顶部页签数量。
+    面板高度随行数自适应、水平居中，绘制与点击共用同一份数据。
     """
     s = theme.S
     cols = theme.ARMORY_COLS
@@ -51,8 +56,7 @@ def armory_geometry(tab: int = 0) -> dict:
     title_h = theme.ARMORY_TITLE_H
     tab_h = theme.ARMORY_TAB_H
     foot_h = theme.ARMORY_FOOT_H
-    entries = armory_entries(tab)
-    rows = math.ceil(len(entries) / cols)
+    rows = max(1, math.ceil(len(entries) / cols))
 
     content_w = (cols - 1) * step_x + cell
     content_h = rows * step_y
@@ -65,10 +69,10 @@ def armory_geometry(tab: int = 0) -> dict:
     grid_y0 = panel_r.y + pad + title_h + tab_h
 
     cells: list[dict] = []
-    for k, item_id in enumerate(entries):
+    for k, entry in enumerate(entries):
         col, row = k % cols, k // cols
         r = pygame.Rect(grid_x0 + col * step_x, grid_y0 + row * step_y, cell, step_y)
-        cells.append({"rect": r, "item_id": item_id})
+        cells.append({"rect": r, "entry": entry})
 
     close = pygame.Rect(0, 0, int(30 * s), int(30 * s))
     close.topright = (panel_r.right - int(10 * s), panel_r.y + int(10 * s))
@@ -78,11 +82,11 @@ def armory_geometry(tab: int = 0) -> dict:
     tab_gap = int(12 * s)
     tab_y = panel_r.y + pad + title_h + int(6 * s)
     tab_hh = tab_h - int(12 * s)
-    group_w = tab_w * 2 + tab_gap
+    group_w = tab_w * tab_count + tab_gap * (tab_count - 1)
     tab_x0 = panel_r.centerx - group_w // 2
     tabs = [
-        {"rect": pygame.Rect(tab_x0, tab_y, tab_w, tab_hh), "tab": 0},
-        {"rect": pygame.Rect(tab_x0 + tab_w + tab_gap, tab_y, tab_w, tab_hh), "tab": 1},
+        {"rect": pygame.Rect(tab_x0 + i * (tab_w + tab_gap), tab_y, tab_w, tab_hh), "tab": i}
+        for i in range(tab_count)
     ]
     return {
         "panel": panel_r,
@@ -94,15 +98,31 @@ def armory_geometry(tab: int = 0) -> dict:
     }
 
 
-def draw_armory(surface: pygame.Surface, tab: int = 0) -> None:
-    """画整个自选台当前页（含全屏遮罩、tab 条、格子网格与提示脚注）。"""
-    g = armory_geometry(tab)
+def armory_geometry(tab: int = 0) -> dict:
+    """装备自选台某一页的几何（装备 tab 只有 0/1 两页）。"""
+    return overlay_geometry(armory_entries(tab), len(TAB_LABELS))
+
+
+def draw_overlay(
+    surface: pygame.Surface,
+    entries: list,
+    active: int,
+    labels: tuple[str, ...],
+    title: str,
+    footer: str,
+    cell_paint,
+) -> None:
+    """通用自选台绘制：全屏遮罩、标题、关闭钮、页签、网格（内容由 cell_paint 决定）与脚注。
+
+    cell_paint(surface, rect, entry, hover) 负责画某一个格子里的内容。
+    """
+    g = overlay_geometry(entries, len(labels))
     surface.blit(dim_overlay((theme.WINDOW_W, theme.WINDOW_H)), (0, 0))
     panel(surface, g["panel"], theme.PANEL, radius=14, border=theme.BORDER)
 
     text(
         surface,
-        TAB_TITLES[tab],
+        title,
         theme.FS_NORMAL,
         theme.TEXT,
         (g["panel"].centerx, g["title_y"]),
@@ -123,46 +143,59 @@ def draw_armory(surface: pygame.Surface, tab: int = 0) -> None:
     # 顶部 tab：当前页高亮，未选页 hover 增亮
     for t in g["tabs"]:
         r = t["rect"]
-        active = t["tab"] == tab
+        is_active = t["tab"] == active
         th = r.collidepoint(mouse)
-        if active:
+        if is_active:
             face, fg = theme.ACCENT, (255, 255, 255)
         elif th:
             face, fg = theme.PANEL_LIGHT, theme.TEXT
         else:
             face, fg = (40, 43, 53), theme.TEXT_DIM
         pygame.draw.rect(surface, face, r, border_radius=8)
-        text(surface, TAB_LABELS[t["tab"]], theme.FS_SMALL, fg, r.center, center=True)
+        text(surface, labels[t["tab"]], theme.FS_SMALL, fg, r.center, center=True)
 
-    s = theme.S
-    icon_size = theme.ITEM_CELL
-    special_ids = special_item_ids()
     for c in g["cells"]:
-        r = c["rect"]
-        cell_hover = r.collidepoint(mouse)
-        icon = pygame.Rect(0, 0, icon_size, icon_size)
-        icon.midtop = (r.centerx, r.y + int(6 * s))
-        draw_item_icon(surface, icon, c["item_id"])
-        if c["item_id"] in special_ids or "+" in c["item_id"]:
-            name_color = theme.GOLD
-        else:
-            name_color = theme.TEXT
-        text(
-            surface,
-            item_name(c["item_id"]),
-            theme.FS_MICRO,
-            name_color,
-            (r.centerx, r.y + int(6 * s) + icon.height + int(6 * s)),
-            center=True,
-        )
-        if cell_hover:
-            pygame.draw.rect(surface, theme.ACCENT, r.inflate(-4 * s, -4 * s), width=2, border_radius=8)
+        cell_paint(surface, c["rect"], c["entry"], c["rect"].collidepoint(mouse))
 
     text(
         surface,
-        TAB_FOOTERS[tab],
+        footer,
         theme.FS_TINY,
         theme.TEXT_DIM,
         (g["panel"].centerx, g["footer_y"]),
         center=True,
+    )
+
+
+def _item_cell(surface: pygame.Surface, rect: pygame.Rect, item_id: str, hover: bool) -> None:
+    """装备自选台格子：装备图标（有贴图显贴图）+ 名字；hover 描高亮框。"""
+    s = theme.S
+    icon_size = theme.ITEM_CELL
+    special = item_id in special_item_ids() or "+" in item_id
+    icon = pygame.Rect(0, 0, icon_size, icon_size)
+    icon.midtop = (rect.centerx, rect.y + int(6 * s))
+    draw_item_icon(surface, icon, item_id)
+    name_color = theme.GOLD if special else theme.TEXT
+    text(
+        surface,
+        item_name(item_id),
+        theme.FS_MICRO,
+        name_color,
+        (rect.centerx, rect.y + int(6 * s) + icon.height + int(6 * s)),
+        center=True,
+    )
+    if hover:
+        pygame.draw.rect(surface, theme.ACCENT, rect.inflate(-4 * s, -4 * s), width=2, border_radius=8)
+
+
+def draw_armory(surface: pygame.Surface, tab: int = 0) -> None:
+    """画装备自选台当前页（含全屏遮罩、tab 条、格子网格与提示脚注）。"""
+    draw_overlay(
+        surface,
+        armory_entries(tab),
+        tab,
+        TAB_LABELS,
+        TAB_TITLES[tab],
+        TAB_FOOTERS[tab],
+        _item_cell,
     )

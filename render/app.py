@@ -88,6 +88,8 @@ class App(AppDrawMixin, AppStateMixin):
         self.item_scroll = 0  # 装备栏背包滚动偏移（无上限背包，鼠标悬停滚轮翻页）
         self.armory_open = False  # 装备自选台（F2 唤出/关闭）
         self.armory_tab = 0  # 自选台当前页：0=成装，1=散件（重开时保留上次页）
+        self.picker_open = False  # 棋子自选栏（F3 唤出/关闭）
+        self.picker_cost = 1  # 棋子自选栏当前费用页 1~5（重开时保留上次页）
         self.xp_held = False  # 升级按钮是否被按住（长按连升）
         self.xp_cd = 0.0  # 长按连升冷却
         # 左键单击详情：press 记录按下起点，原地松开判为单击
@@ -147,7 +149,7 @@ class App(AppDrawMixin, AppStateMixin):
 
     def _update_held_xp(self, dt: float) -> None:
         """升级按钮长按连升：按住不放时按冷却连续买经验。"""
-        if not self.xp_held or self.phase != self.PHASE_DEPLOY or self.armory_open:
+        if not self.xp_held or self.phase != self.PHASE_DEPLOY or self.armory_open or self.picker_open:
             return
         self.xp_cd -= dt
         if self.xp_cd > 0:
@@ -313,13 +315,15 @@ class App(AppDrawMixin, AppStateMixin):
         self.draw_fx()
         self.draw_floaters()
 
-        # 悬停详情 tooltip 置于最上层（结果/回合横幅之前）；自选台打开时不画，避免被遮罩透出
-        if self.phase == self.PHASE_DEPLOY and not self.armory_open:
+        # 悬停详情 tooltip 置于最上层（结果/回合横幅之前）；自选台/自选栏打开时不画，避免被遮罩透出
+        if self.phase == self.PHASE_DEPLOY and not self.armory_open and not self.picker_open:
             self._draw_hover_layer()
 
-        # 成装自选台（F2）：画在信息层之上，独占鼠标事件
+        # 装备自选台（F2）/ 棋子自选栏（F3）：画在信息层之上，独占鼠标事件
         if self.armory_open:
             self.draw_armory()
+        elif self.picker_open:
+            self.draw_champ_picker()
 
         if self.phase in (self.PHASE_RESULT, self.PHASE_OVER):
             self.draw_result()

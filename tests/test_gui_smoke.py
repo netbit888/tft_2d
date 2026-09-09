@@ -91,3 +91,43 @@ def test_armory_two_tabs():
     # ESC 关闭
     app.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE))
     assert not app.armory_open
+
+
+def test_champion_picker_five_cost_pages():
+    """F3 棋子自选栏：默认 1 费页 → 切到 3 费页 → 点格子免费得棋子，各页均可绘制。"""
+    from render.champ_view import champ_entries, champ_geometry
+
+    app = _make_app()
+    # F3 打开：默认停在 1 费页（11 个棋子）
+    app.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_F3))
+    assert app.picker_open and app.picker_cost == 1
+    assert len(champ_entries(1)) == 11
+    assert len(champ_geometry(1)["cells"]) == 11
+
+    # 点顶部「3费」tab 切页
+    tab2 = champ_geometry(1)["tabs"][2]
+    app.handle_event(
+        pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=tab2["rect"].center)
+    )
+    assert app.picker_cost == 3
+    entries3 = champ_entries(3)
+    assert len(entries3) == 10
+
+    # 点 3 费页第一格：免费获得该棋子进备战席
+    before = len(app.game.you.bench)
+    first = champ_geometry(3)["cells"][0]
+    app.handle_event(
+        pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=first["rect"].center)
+    )
+    assert len(app.game.you.bench) == before + 1
+    assert app.game.you.bench[-1].tid == entries3[0]
+
+    # 1 费 / 3 费页各画一帧不出错
+    app.picker_cost = 1
+    app.draw()
+    app.picker_cost = 3
+    app.draw()
+
+    # ESC 关闭
+    app.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE))
+    assert not app.picker_open

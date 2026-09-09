@@ -21,12 +21,13 @@ from core.items import (
     item_name,
 )
 from core.loader import load_units
-from core.player import next_star_if_buy
+from core.player import MAX_BENCH, Piece, next_star_if_buy, try_upgrade
 from core.shop import buy, refresh_shop, sell_piece
 
 from . import theme
 from .armory_view import armory_geometry
 from .board_view import cell_at, cell_rect
+from .champ_view import champ_entries, champ_geometry
 from .item_view import item_slot_at
 from .shop_view import bench_slot_at, bench_slot_rect, shop_card_at, shop_card_rect
 
@@ -113,6 +114,9 @@ class AppStateMixin:
             if self.armory_open:  # 先关自选台，再关详情，最后才退出
                 self._toggle_armory()
                 return
+            if self.picker_open:  # 棋子自选栏同理，优先级高于详情
+                self._toggle_picker()
+                return
             if self.detail is not None:
                 self.detail = None
                 return
@@ -121,6 +125,9 @@ class AppStateMixin:
         if event.type == pygame.KEYDOWN and event.key == pygame.K_F2 and self.phase == self.PHASE_DEPLOY:
             self._toggle_armory()
             return
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_F3 and self.phase == self.PHASE_DEPLOY:
+            self._toggle_picker()
+            return
 
         if self.phase == self.PHASE_DEPLOY:
             # 松开鼠标：停止长按连升（自选台打开时同样要停）
@@ -128,6 +135,9 @@ class AppStateMixin:
                 self.xp_held = False
             if self.armory_open:
                 self._armory_event(event)
+                return
+            if self.picker_open:
+                self._picker_event(event)
                 return
 
             if self.btn_refresh.handle(event):
@@ -237,12 +247,29 @@ class AppStateMixin:
     def _toggle_armory(self) -> None:
         """F2 / ESC / 关闭按钮 / 点面板外：开关成装自选台。
 
-        打开时中断进行中的拖拽与单击详情，防止面板挡住的操作误触发底层事件。
+        打开时中断进行中的拖拽与单击详情，防止面板挡住的操作误触发底层事件；
+        同时收起棋子自选栏（两面板互斥）。
         """
         if self.phase != self.PHASE_DEPLOY:
             return
         self.armory_open = not self.armory_open
         if self.armory_open:
+            self.picker_open = False
+            self.drag = None
+            self._press = None
+            self.detail = None
+            self.xp_held = False  # 中止可能的"长按买经验"
+
+    def _toggle_picker(self) -> None:
+        """F3 / ESC / 关闭按钮 / 点面板外：开关棋子自选栏（1~5 费五页，免费领棋子）。
+
+        与装备自选台互斥；打开时同样中断拖拽与详情。
+        """
+        if self.phase != self.PHASE_DEPLOY:
+            return
+        self.picker_open = not self.picker_open
+        if self.picker_open:
+            self.armory_open = False
             self.drag = None
             self._press = None
             self.detail = None
@@ -266,8 +293,46 @@ class AppStateMixin:
                 return
         for cell in g["cells"]:
             if cell["rect"].collidepoint(pos):
-                self._grant_from_armory(cell["item_id"])
+                self._grant_from_armory(cell["entry"])
                 return
+
+    def _picker_event(self, event) -> None:
+        """棋子自选栏打开时独占点击：切页 / 点格免费领棋子，点 ✕ / 面板外关闭。"""
+        if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
+            return
+        g = champ_geometry(self.picker_cost)
+        pos = event.pos
+        if g["close"].collidepoint(pos):
+            self._toggle_picker()
+            return
+        if not g["panel"].collidepoint(pos):
+            self._toggle_picker()
+            return
+        for t in g["tabs"]:
+            if t["rect"].collidepoint(pos):
+                self.picker_cost = t["tab"] + 1  # tab 顺序即 1~5 费
+                return
+        for cell in g["cells"]:
+            if cell["rect"].collidepoint(pos):
+                self._grant_from_picker(cell["entry"])
+                return
+
+    def _grant_from_picker(self, tid: str) -> None:
+        """点击棋子自选栏格子：免费获得 1 个到备战席（可连点），凑齐 3 张自动升星。"""
+        you = self.game.you
+        if len(you.bench) >= MAX_BENCH:
+            self.message = "备战席已满，先上阵或卖掉一个棋子"
+            self.audio.sfx.play("error")
+            return
+        name = load_units()[tid].name
+        you.bench.append(Piece(tid))
+        upgrades = try_upgrade(you)
+        if upgrades:
+            self.message = f"免费获得 {name}：" + "、".join(upgrades)
+            self.audio.sfx.play("star")
+        else:
+            self.message = f"免费获得 {name}，已放入备战席"
+            self.audio.sfx.play("buy")
 
     def _grant_from_armory(self, item_id: str) -> None:
         """点击自选台格子：放入一件到装备栏（可连点，任意数量，背包无上限）。
