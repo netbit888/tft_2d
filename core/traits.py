@@ -36,7 +36,11 @@ EMPTY = TraitMods()
 
 
 def count_traits_from_tids(tids: list[str], templates: dict) -> dict[str, int]:
-    """直接从棋子 id 列表统计羁绊（同名只计一次），给 AI 评估和 UI 展示用。"""
+    """直接从棋子 id 列表统计羁绊（同名只计一次），给 AI 评估和 UI 展示用。
+
+    部分大型单位对某羁绊提供更高计数（如远古巨龙对峡谷野怪 trait_extra 为 2）：
+    该单位在羁绊 t 上的合计计数 = trait_extra[t]（缺省 1），由模板字段决定。
+    """
     seen: set[str] = set()
     counts: dict[str, int] = {}
     for tid in tids:
@@ -47,21 +51,15 @@ def count_traits_from_tids(tids: list[str], templates: dict) -> dict[str, int]:
         if tpl is None:
             continue
         for t in tpl.traits:
-            counts[t] = counts.get(t, 0) + 1
+            counts[t] = counts.get(t, 0) + int(tpl.trait_extra.get(t, 1))
     return counts
 
 
 def count_traits(units: list[Unit]) -> dict[str, int]:
-    """统计场上羁绊数量，同名棋子只计一次。"""
-    seen: set[str] = set()
-    counts: dict[str, int] = {}
-    for u in units:
-        if u.tid in seen:
-            continue
-        seen.add(u.tid)
-        for t in u.traits:
-            counts[t] = counts.get(t, 0) + 1
-    return counts
+    """统计场上羁绊数量，同名棋子只计一次（口径与 count_traits_from_tids 一致）。"""
+    from .loader import load_units  # 延迟导入：loader 模块顶部会 import traits，避免循环
+
+    return count_traits_from_tids([u.tid for u in units], load_units())
 
 
 def active_tier(trait_def: dict, count: int) -> dict | None:

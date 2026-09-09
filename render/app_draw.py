@@ -19,7 +19,7 @@ from core.items import (
     item_name,
 )
 from core.loader import load_traits, load_units
-from core.player import odds_for_level, xp_needed_for_level
+from core.player import MAX_LEVEL, odds_for_level, xp_needed_for_level
 from core.traits import count_traits_from_tids
 
 from . import theme
@@ -108,11 +108,13 @@ class AppDrawMixin:
 
     def draw_roster_ui(self) -> None:
         """8 人战况面板：支持点击行切换观察视角。"""
+        # 未开战不透露本回合对手配对（黄色框等），开战/结算后再标出
+        opp_marker = None if self.phase == self.PHASE_DEPLOY else self.game.current_opponent
         self._roster_rows = draw_roster(
             self.screen,
             self.game,
             selected=self._view_index(),
-            current_opp=self.game.current_opponent,
+            current_opp=opp_marker,
         )
 
     def draw_topbar(self) -> None:
@@ -151,7 +153,7 @@ class AppDrawMixin:
         """等级旁的经验进度条 + 数字。"""
         from core.player import xp_needed_for_level
 
-        if you.level >= 9:
+        if you.level >= MAX_LEVEL:
             text(self.screen, "MAX", theme.FS_TINY, theme.GOLD, (theme.XP_TEXT_X, theme.XP_TEXT_Y))
             return
         need = xp_needed_for_level(you.level + 1)
@@ -195,24 +197,27 @@ class AppDrawMixin:
             x += theme.ODDS_GAP
 
     def draw_hp_row(self) -> None:
-        """备战席上方一行：你/当前对手血条 + 上场数。
+        """备战席上方一行：你/对手血条 + 上场人口。
 
-        需求1：右侧血条默认显示“本回合配对对手”，名字即带电脑编号；
-        观察某台电脑时切换到该电脑。点击右侧血条可在 1v1/默认 下快速往返。
+        需求：未开战（部署阶段）且看自己时不显示本回合对手的血条，
+        对手信息只在我方开战/结算后，或玩家在战况面板主动选择某位对手时出现。
+        上场人口按“弈子栏位”计：远古巨龙等大型单位占 2 个人口。
         """
         g = self.game
         self.draw_hp_bar("你", theme.HP1_X, g.you.hp, theme.TEAM_COLORS["blue"])
-        board_count = len(g.you.board)
+        pop_now = g.you.board_pop
         cap = g.you.board_cap
-        pop_color = theme.GOLD if board_count >= cap else theme.TEXT_DIM
+        pop_color = theme.GOLD if pop_now >= cap else theme.TEXT_DIM
         text(
             self.screen,
-            f"上场 {board_count}/{cap}",
+            f"人口 {pop_now}/{cap}",
             theme.FS_TINY,
             pop_color,
             (theme.POP_X, theme.HP_BAR_Y - 2 * theme.S),
         )
 
+        if not self._opponent_visible():
+            return  # 未开战且看自己：隐藏本回合对手信息
         target = self._bar_target()
         viewing = self._view_index() != 0
         self.draw_hp_bar(
@@ -264,12 +269,14 @@ class AppDrawMixin:
         self._trait_hits = []
 
         y = rect.y + 12 * theme.S
-        second = self._bar_target()  # 右侧血条同一对象：对手编号随其名字显示
-        for title, player in (("你的羁绊", self.game.you), (f"{second.name} 的羁绊", second)):
-            text(self.screen, title, theme.FS_NORMAL, theme.TEXT, (rect.x + 12 * theme.S, y))
-            y += 32 * theme.S
-            y = self._draw_traits(player, rect.x + 12 * theme.S, y, rect.width - 24 * theme.S)
-            y += 18 * theme.S
+        # 阵容羁绊：选谁（观察谁）就只显示谁的，不把两人的羁绊并排显示。
+        # 默认看自己 -> “你的羁绊”；在战况面板/血条点选了某玩家 -> 只显示该玩家的。
+        viewing = self._view_player()
+        title = "你的羁绊" if self._view_index() == 0 else f"{viewing.name} 的羁绊"
+        text(self.screen, title, theme.FS_NORMAL, theme.TEXT, (rect.x + 12 * theme.S, y))
+        y += 32 * theme.S
+        y = self._draw_traits(viewing, rect.x + 12 * theme.S, y, rect.width - 24 * theme.S)
+        y += 18 * theme.S
 
         pool = self.game.pool
         if pool is not None:
@@ -384,10 +391,11 @@ class AppDrawMixin:
         # 需求1：观察视角提示
         if self._view_index() != 0:
             msgs.append(f"正在观察 {self._view_player().name} 的棋子，点右侧血条返回自己")
-        elif len(self.game.players) <= 2:
-            msgs.append("点右侧血条可查看电脑的棋盘")
+        elif self.phase == self.PHASE_DEPLOY:
+            # 未开战不显示本回合对手信息；战况面板选择谁即显示谁的阵容
+            msgs.append("未开战不显示本回合对手信息（战况面板点名字可看其棋盘与羁绊）")
         else:
-            msgs.append("战况面板点对手名字可查看其棋盘")
+            msgs.append("点右侧血条可查看电脑的棋盘")
         if self.message:
             msgs.append(self.message)
         text(self.screen, "   |   ".join(msgs), theme.FS_TINY, theme.TEXT_DIM, (theme.PAD, theme.HINT_Y))

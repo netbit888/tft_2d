@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from .grid import AUTO_ROW_ORDER, COLS, ROWS, TEAM_ROWS
 from .loader import load_units
-from .player import MAX_BENCH, Piece, Player, unit_name
+from .player import MAX_BENCH, Piece, Player, piece_slots, unit_name
 
 # 从中间向两侧展开，避免全都挤在一边
 CENTER_ORDER = (3, 2, 4, 1, 5, 0, 6)
@@ -184,8 +184,13 @@ def _move_to_board(
     if other is not None:
         return _swap(player, piece, where, other, (col, row))
 
-    if where == "bench" and len(player.board) >= player.board_cap:
-        return MoveResult(False, f"上场人数已达上限 {player.board_cap}")
+    if where == "bench":
+        need = piece_slots(piece)
+        if player.board_pop + need > player.board_cap:
+            return MoveResult(
+                False,
+                f"人口不足（{player.board_pop}/{player.board_cap}，{unit_name(piece.tid)} 占 {need} 人口）",
+            )
 
     if where == "bench":
         player.bench.remove(piece)

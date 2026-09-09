@@ -62,7 +62,7 @@ def render(game: Game, message: str = "") -> None:
     print(f" 回合 {game.round}        你 {you.hp} HP  |  电脑 {foe.hp} HP  |  金币 {you.gold}")
     print(LINE)
 
-    print(f"你的阵容 ({len(you.board)}/{you.board_cap})：")
+    print(f"你的阵容（人口 {you.board_pop}/{you.board_cap}）：")
     if you.board:
         for i, p in enumerate(you.board, 1):
             print(f"  {i}. {piece_label(p)}")
@@ -73,7 +73,7 @@ def render(game: Game, message: str = "") -> None:
     if you.bench:
         print(f"备战席：{'，'.join(piece_label(p) for p in you.bench)}")
 
-    print(f"\n电脑阵容 ({len(foe.board)}/{foe.board_cap})：")
+    print(f"\n电脑阵容（人口 {foe.board_pop}/{foe.board_cap}）：")
     print("  " + ("，".join(piece_label(p) for p in foe.board) if foe.board else "（空）"))
     print(f"  羁绊：{trait_panel([p.tid for p in foe.board])}")
 

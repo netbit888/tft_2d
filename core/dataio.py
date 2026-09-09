@@ -126,15 +126,15 @@ def check_data() -> list[str]:
 
     # ---- level.json ----
     levels = level.get("levels", [])
-    if len(levels) != 9:
-        errors.append(f"level.json levels 应为 9 级，实际 {len(levels)} 条")
+    if len(levels) != 10:
+        errors.append(f"level.json levels 应为 10 级，实际 {len(levels)} 条")
     for i, row in enumerate(levels, start=1):
         if row.get("level") != i or not isinstance(row.get("board_cap"), int) or not isinstance(
             row.get("xp_needed"), int
         ):
             errors.append(f"level.json 第 {i} 条形状非法：{row}")
     odds = level.get("odds", {})
-    for lv in range(1, 10):
+    for lv in range(1, 11):
         arr = odds.get(str(lv))
         if not isinstance(arr, list) or len(arr) != 5 or abs(sum(arr) - 100) > 1e-6:
             errors.append(f"level.json odds[{lv}] 应为 5 项且合计 100：{arr}")

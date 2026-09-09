@@ -60,6 +60,14 @@ class AppStateMixin:
             return g.players[idx]
         return g.players[g.current_opponent]
 
+    def _opponent_visible(self) -> bool:
+        """右侧“本回合对手”信息是否可见。
+
+        需求：未开战（部署阶段）且看自己时不显示本回合对手；
+        一旦开战/进入结算，或玩家主动在战况面板选择某位玩家观察时即可见。
+        """
+        return self.phase != self.PHASE_DEPLOY or self._view_index() != 0
+
     def _set_view(self, idx: int) -> None:
         g = self.game
         if idx < 0 or idx >= len(g.players):
@@ -172,8 +180,8 @@ class AppStateMixin:
             return
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
-                # 观察视角切换（需求1）：右侧血条 / 战况面板行
-                if self._hp2_zone().collidepoint(event.pos):
+                # 观察视角切换：右侧血条（部署期看自己时对手栏隐藏，故不可点）/ 战况面板行
+                if self._opponent_visible() and self._hp2_zone().collidepoint(event.pos):
                     self._toggle_view()
                     return
                 for row_rect, pidx in self._roster_rows:

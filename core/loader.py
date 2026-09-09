@@ -51,6 +51,8 @@ def load_units() -> dict[str, UnitTemplate]:
                 ratio=float(ab.get("ratio", 0)),
                 radius=int(ab.get("radius", 1)),
             ),
+            slots=int(item.get("slots", 1) or 1),
+            trait_extra=dict(item.get("trait_extra", {})),
         )
     _units_cache = templates
     return templates

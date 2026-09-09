@@ -15,7 +15,7 @@ from .pool import Pool
 
 MAX_BENCH = 8  # 备战席容量
 MAX_STAR = 3  # 星级上限
-MAX_LEVEL = 9  # 等级上限
+MAX_LEVEL = 10  # 等级上限
 
 
 def _level_config() -> dict:
@@ -97,9 +97,14 @@ class Player:
     def board_cap(self) -> int:
         return board_cap_for_level(self.level)
 
+    @property
+    def board_pop(self) -> int:
+        """当前上场消耗的人口（普通棋子 1；远古巨龙等大型单位按自身 slots 计）。"""
+        return sum(piece_slots(p) for p in self.board)
+
     def promote_from_bench(self) -> None:
-        """备战席的棋子自动补位上场，直到场上满员。"""
-        while len(self.board) < self.board_cap and self.bench:
+        """备战席的棋子自动补位上场，直到人口放不下为止。"""
+        while self.bench and self.board_pop + piece_slots(self.bench[0]) <= self.board_cap:
             self.board.append(self.bench.pop(0))
 
     def add_xp(self, amount: int) -> int:
@@ -119,6 +124,11 @@ def unit_name(tid: str) -> str:
 
 def unit_cost(tid: str) -> int:
     return load_units()[tid].cost
+
+
+def piece_slots(piece: Piece) -> int:
+    """该棋子上场占用的人口（弈子栏位）：默认 1，远古巨龙等大型单位为 2。"""
+    return max(1, int(getattr(load_units()[piece.tid], "slots", 1)))
 
 
 def piece_label(p: Piece) -> str:
@@ -185,8 +195,12 @@ def try_upgrade(player: Player) -> list[str]:
             player.item_bench.append(it)
         if anchor is not None:
             merged.pos = anchor.pos
-        # 合成腾出了空位，优先留在场上；只有场上满员且备战席还有位置时才回备战席
-        if anchor is not None or len(player.board) < player.board_cap or len(player.bench) >= MAX_BENCH:
+        # 合成腾出了空位，优先留在场上；只有人口放不下且备战席还有位置时才回备战席
+        if (
+            anchor is not None
+            or player.board_pop + piece_slots(merged) <= player.board_cap
+            or len(player.bench) >= MAX_BENCH
+        ):
             player.board.append(merged)
         else:
             player.bench.append(merged)

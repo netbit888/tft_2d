@@ -18,12 +18,37 @@ def test_round1_income_gives_start_gold():
 
 
 def test_level_curve_is_monotonic_and_valid():
-    caps = [board_cap_for_level(lv) for lv in range(1, 10)]
-    assert caps == sorted(caps) and caps[0] >= 1
-    for lv in range(1, 10):
+    caps = [board_cap_for_level(lv) for lv in range(1, 11)]
+    assert caps == sorted(caps) and caps[0] >= 1 and caps[-1] == 10
+    for lv in range(1, 11):
         assert sum(odds_for_level(lv).values()) == 100
         assert xp_needed_for_level(lv) >= 0
     assert upgrade_cost() > 0 and upgrade_xp() > 0
+
+
+def test_titan_occupies_two_pop_and_two_beast_count():
+    """需求1：顶级掠食者——远古巨龙占 2 个人口、提供 +2 峡谷野怪计数（单龙合计按 2 计）。"""
+    from core.player import MAX_BENCH, Piece, Player
+    from core.traits import count_traits_from_tids
+
+    tpl = load_units()["titan"]
+    assert tpl.slots == 2
+    assert tpl.trait_extra.get("454", 0) == 2
+
+    # 羁绊计数：顶级掠食者 1；该棋子对峡谷野怪总共提供 2 个计数（+2 即总贡献，不再叠自身）
+    counts = count_traits_from_tids(["titan"], load_units())
+    assert counts.get("471") == 1
+    assert counts.get("454") == 2
+
+    # 人口：1 级（上限 1）放不下占 2 人口的远古巨龙，2 级才可上场
+    p = Player("测试", level=1)
+    p.bench = [Piece("titan", 1)]
+    p.promote_from_bench()
+    assert p.board == [], "1 人口不该放下占 2 人口的远古巨龙"
+    p.level = 2
+    p.promote_from_bench()
+    assert [x.tid for x in p.board] == ["titan"]
+    assert p.board_pop == 2
 
 
 def test_pool_conservation_after_full_8p_match():

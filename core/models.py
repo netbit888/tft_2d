@@ -49,6 +49,8 @@ class UnitTemplate:
     ap: float = 0.0  # 基础法强，法师系的技能伤害保底
     crit_chance: float = 0.05
     ability: AbilityDef = AbilityDef()
+    slots: int = 1  # 上场占用的弈子栏位（人口），大型单位（远古巨龙）为 2
+    trait_extra: dict = field(default_factory=dict)  # 羁绊计数合计贡献（缺省每羁绊 1），如 {"454": 2} 表示远古巨龙对峡谷野怪按 2 计
 
 
 @dataclass

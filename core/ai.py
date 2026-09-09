@@ -51,7 +51,7 @@ def ai_take_turn(player: Player, shop: Shop, rng: Rng) -> list[str]:
     log: list[str] = []
 
     for _ in range(MAX_BUYS_PER_ROUND):
-        board_full = len(player.board) >= player.board_cap
+        board_full = player.board_pop >= player.board_cap  # 大型单位占多个人口，按人口判断
         bench_full = len(player.bench) >= MAX_BENCH
         if board_full and bench_full:
             break
@@ -121,7 +121,7 @@ def ai_upgrade_check(player: Player, round_num: int = 1) -> str | None:
     """AI 升级节奏：按回合推进目标等级，落后越多越激进。
 
     策略（模拟金铲铲的经济决策）：
-    - 目标等级随回合递增（前期 4 级、中期 6 级、后期 8~9 级）；
+    - 目标等级随回合递增（前期 4 级、中期 6 级、后期 8~10 级）；
     - 只落后 1 级：守住 50 金吃满利息，不急着升；
     - 落后 2 级及以上：激进冲级，只保留 10 金买棋子。
     """
@@ -131,8 +131,10 @@ def ai_upgrade_check(player: Player, round_num: int = 1) -> str | None:
         target = 6
     elif round_num <= 9:
         target = 8
-    else:
+    elif round_num <= 12:
         target = 9
+    else:
+        target = 10
     target = min(MAX_LEVEL, target)
 
     while player.level < target and player.gold >= 4:
