@@ -13,10 +13,12 @@
 - **8 行蜂窝六边形棋盘（7×8）**：己方（蓝）在下 4 行、敌方（红）在上 4 行，
   行间错半格呈蜂窝排布；命中判定按六边形点包含计算。
 - **星级数值模型**：生命/攻击随星翻倍成长，攻速按档位轻成长（×1.0/1.1/1.25），
-  护甲/魔抗/法强不随星；羊刀、三相、帽子等“按自身属性百分比强化”的特效统一
+  护甲/魔抗/法强不随星；羊刀、帽子等“按自身属性百分比强化”的特效统一
   只吃星级白板基础值，不与羁绊/装备加成互相放大（详见“数值与平衡”）。
 - **战斗内实时详情**：开战后左键点选任意棋子即可查看实时面板（攻速含羊刀叠层、
   与出手节奏同源），便于暂停逐帧观察装备特效与数值变化。
+- **装备贴图**：散件 `assets/items/base/`、成装 `assets/items/combine/`、特殊工具 `assets/items/special/`
+  放入即生效（成装 id 为 `a+b`，如羊刀 `bow+wand`），缺图自动回退程序化图标；详见“装备贴图”。
 - **棋子美术双轨制**：每个棋子默认有“羁绊色渐变底 + 单字”程序头像；
   放入 `assets/units/<tid>.png` 后自动切贴图。棋盘/备战席显示圆形头像，
   **商店卡展示整卡立绘**（贴图铺满卡面，无贴图自动回退，见“棋子贴图”一节）。
@@ -129,6 +131,38 @@ python play.py --seed 7 --auto   # 命令行：双方 AI 全自动跑完整局
 - 阵亡的棋子仍强制走灰色程序头像，语义不变。
 - 注意贴图存在负缓存：运行中放入的图片需**重启游戏**才生效。
 
+## 装备贴图
+
+装备美术与棋子同一套思路：“**有图显图，缺图自动回退**”，找到图片后按规则放进去即可，
+不需要改任何代码：
+
+- **资源路径**：按类别分目录存放，文件名 = 装备 id，与 `data/items.json` 的 id 严格对应：
+  - 散件：`assets/items/base/<id>.png`，如 `base/bow.png`（反曲之弓）、`base/sword.png`（暴风大剑）……
+  - 成装：`assets/items/combine/<a>+<b>.png`，如 `combine/bow+wand.png`（鬼索的狂暴之刃 / 羊刀）、`combine/sword+glove.png`（无尽之刃）……
+  - 特殊工具：`assets/items/special/gold_remover.png`（金制拆卸器）。
+- **格式**：优先 PNG（透明底最佳）；也自动探测 `.webp` / `.jpg` / `.jpeg`。
+- **一键获取**：贴图按体积 / 版权考虑不纳入版本库（`.gitignore` 排除了 `assets/items`
+  下的图片，仅 `assets/units` 例外），拉取仓库后需先运行
+  `python tools/fetch_item_icons.py`：自动比对多个 Data Dragon 版本、下载全套官方图标，
+  并按 `base/`、`combine/`、`special/` 分目录落盘（统一 128×128）。个别国服名在官方
+  CDN 查不到的装备（麦瑞德之爪、守护天使、利维坦、暗夜收割者、救赎等）会打印
+  `[未匹配]`，可自备同规格 PNG 放入对应目录。
+- **推荐规格**：方形、主体居中、约占画面 60% ~ 80%；128×128 起（官方 CDN 的
+  云顶装备图标即 128×128），256×256 更佳。绘制时统一按格子等比缩放；
+  深色或透明底比白底更贴合深色 UI。
+- **显示位置**（同一份贴图，按需缩放）：
+  - 装备栏格子、成装自选台、拖拽时的跟手图标（大图标，40px 格）；
+  - 棋盘 / 备战席棋子脚下的装备徽章（小图标，12px）。
+- **缺图回退**：大图标回退“稀有度底色 + 装备名首字”，小徽章回退金色（成装）/ 灰色菱形，
+  与加入贴图机制前的外观完全一致。
+- 同样有负缓存：运行中放入的图片需**重启游戏**才生效。
+
+列出全部装备 id（照着命名即可）：
+
+```bash
+python -c "from core.items import load_items as L, special_item_ids as S; [print(i) for i in list(L()['base']) + list(L()['combine']) + S()]"
+```
+
 ## 数值与平衡
 
 ### 星级成长与面板构成
@@ -147,17 +181,16 @@ python play.py --seed 7 --auto   # 命令行：双方 AI 全自动跑完整局
 
 ### 装备特效吃“白板基础值”
 
-羊刀 / 三相 / 帽子这类“按自身属性百分比强化”的特效，加成基数取**星级白板基础值**
+羊刀 / 帽子这类“按自身属性百分比强化”的特效，加成基数取**星级白板基础值**
 （`base_max_hp / base_ad / base_ap / base_attack_speed`，不含羁绊与装备），
-不与装备、羁绊、大天使叠层等其它来源互相放大：
+不与装备、羁绊、大天使叠层等其它来源互相放大。每件装备挂载哪种特效由
+`data/items.json` 的 `effect` 字段决定，引擎的全部特效实现与系数见 `core/combat.py` 顶部：
 
-- **羊刀（`ramping_as`）**：每把每次命中叠 **+6% 基础攻速**（多把同击叠得更快），
+- **羊刀（`ramping_as`，鬼索的狂暴之刃）**：每把每次命中叠 **+6% 基础攻速**（多把同击叠得更快），
   加性与面板攻速% 叠加（实际攻速 = 面板攻速 + 基础攻速 × 叠层）；无叠层上限，由 `AS_CAP` 兜底。
-- **三相之力（`on_cast_buff`）**：施放技能后 6 秒内普攻 **+20% 基础攻击**
-  （装备自带的固定攻击力不参与放大）。
 - **灭世者的死亡之帽（`ap_amp`）**：施法时**仅基础法强 +35%**，不吃羁绊 / 装备 /
   大天使叠层的法强；基础法强为 0 的物理棋子佩戴无效（只吃到其固定法强加成）。
-- 冰心减速等光环按“先封顶、后乘性”作用于实际攻速，与羊刀互不干扰。
+- 攻速光环类削减（`slow_aura`）按“先封顶、后乘性”作用于实际攻速，与羊刀互不干扰。
 
 这样一星与三星、裸装与神装之间的差距被控制在单一乘区内，数值更可控、更好调。
 
@@ -171,7 +204,7 @@ python play.py --seed 7 --auto   # 命令行：双方 AI 全自动跑完整局
 - 装备与合成：`data/items.json`
 - 人口 / 升级曲线与抽卡概率：`data/level.json`
 - 星级倍率 / 攻速档位 / 全局攻速上限：`core/models.py`
-- 特效系数（羊刀步进、三相、帽子、冰心、大天使等）：`core/combat.py`
+- 特效系数（羊刀步进、帽子、大天使、巨人杀手、复活、冰心减速等）：`core/combat.py`
 
 改完建议先 `python launcher.py sim --check` 校验数据，再跑 `--bench` 看胜率、
 `--mirror` 确认内核无方向性偏差；需要把新数值做成可读清单时执行
@@ -251,7 +284,8 @@ tft_2d/
 │  ├─ battle_view.py       #   实时战斗回放 + 点选棋子查看实时详情（_hit_unit / 详情面板）
 │  ├─ shop_view.py         #   商店卡 / 备战席绘制
 │  ├─ armory_view.py       #   成装自选台
-│  ├─ item_view.py         #   装备栏
+│  ├─ item_view.py         #   装备栏（装备图标绘制统一委托 item_art）
+│  ├─ item_art.py          #   装备贴图：assets/items/{base,combine,special}/ 加载/绘制，缺图回退
 │  ├─ info.py              #   详情 tooltip：部署期 unit_records / 战斗期 battle_unit_records（实时数值）
 │  ├─ assets.py            #   文字渲染与贴图缓存
 │  ├─ audio.py             #   背景乐 / UI 音效（无设备自动降级静音）
@@ -264,12 +298,14 @@ tft_2d/
 │  └─ level.json           #   9 级人口经验曲线 + 各费用刷新概率
 ├─ assets/
 │  ├─ audio/               #   程序化生成的 BGM / 音效 WAV（tools/gen_audio.py 重建）
+│  ├─ items/               #   装备贴图：base/ 散件、combine/ 成装、special/ 特殊工具
 │  └─ units/               #   棋子贴图：按 <tid>.png 命名（内置 shade 示例）
 ├─ tests/                  # pytest 回归：数据完整性 / 驱动器确定性 / 内核不变量 /
-│                          #   数值模型（星级攻速、特效吃基础值）/ GUI 冒烟
+│                          #   数值模型（星级攻速、特效吃基础值）/ 装备贴图 / GUI 冒烟
 └─ tools/
    ├─ simulate.py          # 战斗模拟：单局 / --bench / --mirror / --fullgame / --check
    ├─ dump_tables.py       # 数值总览生成器：data/*.json → 《数值总览.md》
+   ├─ fetch_item_icons.py  # 下载全套 TFT 官方装备图标 → assets/items/{base,combine,special}/
    └─ gen_audio.py         # 纯标准库合成全部音频资源
 ```
 
@@ -280,4 +316,5 @@ python -m pytest tests/    # 或：python -m pytest（pyproject 已配置 tests 
 ```
 
 覆盖：`data/*.json` 完整性（`--check` 同源校验）、驱动器可复现确定性、战斗内核不变量、
-星级成长与“特效吃白板基础值”的数值模型（`tests/test_stats_model.py`）、GUI 冒烟。
+星级成长与“特效吃白板基础值”的数值模型（`tests/test_stats_model.py`）、装备贴图加载与缺图回退
+（`tests/test_item_art.py`）、GUI 冒烟。

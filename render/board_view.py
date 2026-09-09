@@ -20,6 +20,7 @@ from core.loader import load_traits, load_units
 
 from . import theme
 from .assets import font, text_shadow
+from .item_art import draw_item_badge
 from .widgets import bar, hp_color, panel
 
 # ---------- 坐标换算（蜂窝六边形，odd-r） ----------
@@ -565,16 +566,12 @@ def draw_placements(surface: pygame.Surface, placements: list[dict], team: str) 
 
 
 def _draw_equip_badges(surface: pygame.Surface, rect: pygame.Rect, equip: list) -> None:
-    """在棋子下方画装备小图标（菱形，高级装备金色）。"""
+    """在棋子下方画装备小图标：有贴图显示缩略图，缺图回退菱形（成装金色）。"""
     n = min(len(equip), 3)
     gap = max(10, int(12 * theme.S))
     start_x = rect.centerx - (n - 1) * gap // 2
     y = rect.bottom - max(4, int(5 * theme.S))
-    half = max(3, int(4 * theme.S))
     for k in range(n):
         it = equip[k]
         cx = start_x + k * gap
-        color = theme.GOLD if "+" in it.item_id else theme.BORDER
-        pts = [(cx, y - half), (cx + half, y), (cx, y + half), (cx - half, y)]
-        pygame.draw.polygon(surface, color, pts)
-        pygame.draw.polygon(surface, (12, 13, 18), pts, width=1)
+        draw_item_badge(surface, (cx, y), it.item_id)

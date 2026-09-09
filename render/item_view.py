@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import pygame
 
-from core.items import is_special_item, item_name, load_items
+from core.items import is_special_item, load_items
 
 from . import theme
-from .assets import render, text
+from .assets import text
+from .item_art import draw_item_badge
 from .widgets import panel, tooltip
 
 
@@ -73,23 +74,9 @@ def item_color(item_id: str) -> tuple:
     return theme.BORDER
 
 
-def draw_item_icon(surface: pygame.Surface, rect: pygame.Rect, item_id: str, dim: bool = False) -> None:
-    is_combined = "+" in item_id
-    if is_special_item(item_id):
-        base = (74, 54, 20)  # 特殊工具：亮金底色
-    elif is_combined:
-        base = (58, 46, 24)
-    else:
-        base = theme.PANEL_LIGHT
-    edge = item_color(item_id)
-    panel(surface, rect, base, radius=8, border=edge, width=max(2, 2 * theme.S))
-
-    name = item_name(item_id)
-    # 取名字第一个字做大图标
-    glyph = name[0]
-    color = theme.TEXT if not dim else theme.TEXT_DIM
-    g = render(glyph, theme.FS_NORMAL, color)
-    surface.blit(g, (rect.centerx - g.get_width() // 2, rect.y + 4 * theme.S))
+# 装备图标绘制统一在 render/item_art.py：有贴图显贴图，缺图回退程序化图标。
+# 这里重新导出，保持既有调用方（装备栏 / 自选台 / 拖拽跟手）的导入路径不变。
+from .item_art import draw_item_icon  # noqa: F401  (re-export)
 
 
 def draw_item_bench(
@@ -241,7 +228,7 @@ def draw_roster(
 
 
 def piece_item_badges(surface: pygame.Surface, rect: pygame.Rect, equip: list) -> None:
-    """在棋子头像下方画装备小图标。"""
+    """在棋子头像下方画装备小图标（有贴图显贴图）。"""
     if not equip:
         return
     n = len(equip)
@@ -250,8 +237,4 @@ def piece_item_badges(surface: pygame.Surface, rect: pygame.Rect, equip: list) -
     y = rect.bottom - 16 * theme.S
     for k, it in enumerate(equip):
         cx = start_x + k * gap
-        r = pygame.Rect(0, 0, 12 * theme.S, 12 * theme.S)
-        r.center = (cx, y)
-        color = theme.GOLD if "+" in it.item_id else theme.BORDER
-        pygame.draw.rect(surface, color, r, border_radius=3)
-        pygame.draw.rect(surface, (12, 13, 18), r, width=1, border_radius=3)
+        draw_item_badge(surface, (cx, y), it.item_id)

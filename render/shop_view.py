@@ -15,6 +15,7 @@ from core.loader import load_units
 from . import theme
 from .assets import text
 from .board_view import PieceVisual, draw_piece, shop_card_art, trait_tag, visual_from_tid
+from .item_art import draw_item_badge
 from .widgets import panel
 
 # ---------- 命中检测 ----------
@@ -82,14 +83,10 @@ def _bench_equip_badges(surface: pygame.Surface, rect: pygame.Rect, equip: list)
     gap = max(10, int(12 * theme.S))
     start_x = rect.centerx - (n - 1) * gap // 2
     y = rect.bottom - max(4, int(5 * theme.S))
-    half = max(3, int(4 * theme.S))
     for k in range(n):
         it = equip[k]
         cx = start_x + k * gap
-        color = theme.GOLD if "+" in it.item_id else theme.BORDER
-        pts = [(cx, y - half), (cx + half, y), (cx, y + half), (cx - half, y)]
-        pygame.draw.polygon(surface, color, pts)
-        pygame.draw.polygon(surface, (12, 13, 18), pts, width=1)
+        draw_item_badge(surface, (cx, y), it.item_id)
 
 
 def draw_shop(
