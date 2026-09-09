@@ -17,8 +17,8 @@ from core.models import AS_CAP, AS_STAR_MULTIPLIER
 from core.stats import compute_stats
 from core.traits import TraitMods
 
-DART = "dart"  # 攻速 0.8 的 1 费远程
-WISP = "wisp"  # 基础法强 15 的法师
+DART = "s18_varus"  # 攻速 0.8 的 1 费远程
+WISP = "s18_karma"  # 基础法强 15 的法师
 
 
 def _stats(tid: str, star: int, mods: TraitMods | None = None, items: dict | None = None):
@@ -134,15 +134,15 @@ def _single_duel(blue_pl: dict, red_pl: dict, mutate=None) -> tuple[object, obje
 
 def test_three_force_buff_scales_with_base_ad_only():
     """三相 +20% 只放大佩戴者基础攻击；装备提供的额外 AD 不参与放大。"""
-    target_tpl = load_units()["ironwall"]
-    stone = load_units()["stonefist"]
+    target_tpl = load_units()["s18_ornn"]
+    stone = load_units()["s18_camille"]
     base_ad = stone.ad  # 佩戴者 1 星基础攻击（官方同步值）
     equip_ad_flat = 10  # 三相自带 +10 攻击
 
     def run(three_active: bool):
         c, atk, tgt = _single_duel(
-            {"id": "stonefist", "star": 1, "pos": [0, 0], "equip": [ItemInstance("sword+tear")]},
-            {"id": "ironwall", "star": 1, "pos": [5, 5]},
+            {"id": "s18_camille", "star": 1, "pos": [0, 0], "equip": [ItemInstance("sword+tear")]},
+            {"id": "s18_ornn", "star": 1, "pos": [5, 5]},
             mutate=lambda b, r: (
                 setattr(b[0], "crit_chance", 0.0),
                 setattr(b[0], "three_t", 1.0 if three_active else 0.0),
@@ -172,7 +172,7 @@ def test_deathcap_only_amplifies_base_ap():
     # wisp：基础法强 15；帽子 ap_flat +20 → 面板法强 35
     c, atk, tgt = _single_duel(
         {"id": WISP, "star": 1, "pos": [0, 0], "equip": [ItemInstance("wand+wand")]},
-        {"id": "ironwall", "star": 1, "pos": [5, 5]},
+        {"id": "s18_ornn", "star": 1, "pos": [5, 5]},
     )
     assert atk.ap == pytest.approx(15 + 20)
     c._cast(atk, tgt)
@@ -183,21 +183,21 @@ def test_deathcap_only_amplifies_base_ap():
     ab = load_units()[WISP].ability
     eff_ap = 15 * 1.35 + (atk.ap - atk.base_ap)
     power = ab.value + eff_ap * ab.ratio
-    expected = power * 100.0 / (100.0 + load_units()["ironwall"].magic_resist)
+    expected = power * 100.0 / (100.0 + load_units()["s18_ornn"].magic_resist)
     assert magic[-1] == pytest.approx(expected)
 
     # 旧式“整面板 ×1.35”会明显更大：验证帽子没吃装备法强
     old_power = (ab.value + atk.ap * ab.ratio) * 1.35
-    assert magic[-1] < old_power * 100.0 / (100.0 + load_units()["ironwall"].magic_resist) - 1.0
+    assert magic[-1] < old_power * 100.0 / (100.0 + load_units()["s18_ornn"].magic_resist) - 1.0
 
 
 def test_deathcap_has_no_effect_without_base_ap():
     """基础法强为 0 的物理棋子戴帽子：没有额外法强增益，只吃到 ap_flat。"""
-    rogue = load_units()["rogue"]  # 无 ap 字段 → 基础法强 0
+    rogue = load_units()["s18_xayah"]  # 无 ap 字段 → 基础法强 0
     assert rogue.ap == 0.0
     c, atk, tgt = _single_duel(
-        {"id": "rogue", "star": 1, "pos": [0, 0], "equip": [ItemInstance("wand+wand")]},
-        {"id": "ironwall", "star": 1, "pos": [5, 5]},
+        {"id": "s18_xayah", "star": 1, "pos": [0, 0], "equip": [ItemInstance("wand+wand")]},
+        {"id": "s18_ornn", "star": 1, "pos": [5, 5]},
     )
     assert atk.base_ap == 0.0 and atk.ap == pytest.approx(20.0)
     c._cast(atk, tgt)
@@ -206,5 +206,5 @@ def test_deathcap_has_no_effect_without_base_ap():
     # 无基础法强 → 帽子不放大任何东西：有效法强 = 装备 ap_flat 20
     ab = rogue.ability
     expected = ab.value + 20.0 * ab.ratio
-    expected = expected * 100.0 / (100.0 + load_units()["ironwall"].magic_resist)
+    expected = expected * 100.0 / (100.0 + load_units()["s18_ornn"].magic_resist)
     assert magic[-1] == pytest.approx(expected)

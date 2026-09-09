@@ -31,23 +31,23 @@ def test_titan_occupies_two_pop_and_two_beast_count():
     from core.player import MAX_BENCH, Piece, Player
     from core.traits import count_traits_from_tids
 
-    tpl = load_units()["titan"]
+    tpl = load_units()["s18_elderdragon"]
     assert tpl.slots == 2
     assert tpl.trait_extra.get("454", 0) == 2
 
     # 羁绊计数：顶级掠食者 1；该棋子对峡谷野怪总共提供 2 个计数（+2 即总贡献，不再叠自身）
-    counts = count_traits_from_tids(["titan"], load_units())
+    counts = count_traits_from_tids(["s18_elderdragon"], load_units())
     assert counts.get("471") == 1
     assert counts.get("454") == 2
 
     # 人口：1 级（上限 1）放不下占 2 人口的远古巨龙，2 级才可上场
     p = Player("测试", level=1)
-    p.bench = [Piece("titan", 1)]
+    p.bench = [Piece("s18_elderdragon", 1)]
     p.promote_from_bench()
     assert p.board == [], "1 人口不该放下占 2 人口的远古巨龙"
     p.level = 2
     p.promote_from_bench()
-    assert [x.tid for x in p.board] == ["titan"]
+    assert [x.tid for x in p.board] == ["s18_elderdragon"]
     assert p.board_pop == 2
 
 

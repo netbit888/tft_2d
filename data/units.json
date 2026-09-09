@@ -1,6 +1,6 @@
 [
   {
-    "id": "ironwall",
+    "id": "s18_ornn",
     "name": "奥恩",
     "cost": 1,
     "traits": [
@@ -26,7 +26,7 @@
     }
   },
   {
-    "id": "stonefist",
+    "id": "s18_camille",
     "name": "卡蜜尔",
     "cost": 1,
     "traits": [
@@ -51,7 +51,7 @@
     }
   },
   {
-    "id": "armiger",
+    "id": "s18_leona",
     "name": "蕾欧娜",
     "cost": 1,
     "traits": [
@@ -77,7 +77,7 @@
     }
   },
   {
-    "id": "dart",
+    "id": "s18_varus",
     "name": "韦鲁斯",
     "cost": 1,
     "traits": [
@@ -102,7 +102,7 @@
     }
   },
   {
-    "id": "shade",
+    "id": "s18_yorick",
     "name": "约里克",
     "cost": 1,
     "traits": [
@@ -128,7 +128,7 @@
     }
   },
   {
-    "id": "wisp",
+    "id": "s18_karma",
     "name": "卡尔玛",
     "cost": 1,
     "traits": [
@@ -155,7 +155,7 @@
     }
   },
   {
-    "id": "cleaver",
+    "id": "s18_reksai",
     "name": "雷克塞",
     "cost": 1,
     "traits": [
@@ -180,7 +180,7 @@
     }
   },
   {
-    "id": "spearman",
+    "id": "s18_rakan",
     "name": "洛",
     "cost": 1,
     "traits": [
@@ -206,7 +206,7 @@
     }
   },
   {
-    "id": "stinger",
+    "id": "s18_akali",
     "name": "阿卡丽",
     "cost": 1,
     "traits": [
@@ -232,7 +232,7 @@
     }
   },
   {
-    "id": "glow",
+    "id": "s18_veigar",
     "name": "维迦",
     "cost": 1,
     "traits": [
@@ -260,7 +260,7 @@
     }
   },
   {
-    "id": "rogue",
+    "id": "s18_xayah",
     "name": "霞",
     "cost": 1,
     "traits": [
@@ -286,7 +286,7 @@
     }
   },
   {
-    "id": "bluewatch",
+    "id": "s18_sentry",
     "name": "苍蓝哨戒",
     "cost": 1,
     "traits": [
@@ -313,7 +313,7 @@
     }
   },
   {
-    "id": "crimson",
+    "id": "s18_cinderling",
     "name": "绯红树怪",
     "cost": 1,
     "traits": [
@@ -339,7 +339,7 @@
     }
   },
   {
-    "id": "kukubo",
+    "id": "s18_kobuko",
     "name": "可酷伯",
     "cost": 1,
     "traits": [
@@ -364,7 +364,7 @@
     }
   },
   {
-    "id": "wolfclaw",
+    "id": "s18_warwick",
     "name": "沃里克",
     "cost": 2,
     "traits": [
@@ -389,7 +389,7 @@
     }
   },
   {
-    "id": "sunarrow",
+    "id": "s18_caitlyn",
     "name": "凯特琳",
     "cost": 2,
     "traits": [
@@ -414,7 +414,7 @@
     }
   },
   {
-    "id": "priest",
+    "id": "s18_yunara",
     "name": "芸阿娜",
     "cost": 2,
     "traits": [
@@ -440,7 +440,7 @@
     }
   },
   {
-    "id": "raptor",
+    "id": "s18_teemo",
     "name": "提莫",
     "cost": 2,
     "traits": [
@@ -465,7 +465,7 @@
     }
   },
   {
-    "id": "wraith",
+    "id": "s18_murkwolf",
     "name": "暗影狼",
     "cost": 2,
     "traits": [
@@ -490,7 +490,7 @@
     }
   },
   {
-    "id": "bulwark",
+    "id": "s18_alistar",
     "name": "阿利斯塔",
     "cost": 2,
     "traits": [
@@ -516,7 +516,7 @@
     }
   },
   {
-    "id": "oracle",
+    "id": "s18_kayle",
     "name": "凯尔",
     "cost": 2,
     "traits": [
@@ -543,7 +543,7 @@
     }
   },
   {
-    "id": "levin",
+    "id": "s18_leblanc",
     "name": "乐芙兰",
     "cost": 2,
     "traits": [
@@ -570,7 +570,7 @@
     }
   },
   {
-    "id": "chief",
+    "id": "s18_sejuani",
     "name": "瑟庄妮",
     "cost": 2,
     "traits": [
@@ -595,7 +595,7 @@
     }
   },
   {
-    "id": "banshee",
+    "id": "s18_elise",
     "name": "伊莉丝",
     "cost": 2,
     "traits": [
@@ -620,7 +620,7 @@
     }
   },
   {
-    "id": "vindicator",
+    "id": "s18_shen",
     "name": "慎",
     "cost": 2,
     "traits": [
@@ -645,7 +645,7 @@
     }
   },
   {
-    "id": "scuttler",
+    "id": "s18_scuttlecrab",
     "name": "峡谷迅捷蟹",
     "cost": 2,
     "traits": [
@@ -670,7 +670,7 @@
     }
   },
   {
-    "id": "toad",
+    "id": "s18_gromp",
     "name": "魔沼蛙",
     "cost": 2,
     "traits": [
@@ -697,7 +697,7 @@
     }
   },
   {
-    "id": "venom",
+    "id": "s18_khazix",
     "name": "卡兹克",
     "cost": 3,
     "traits": [
@@ -721,7 +721,7 @@
     }
   },
   {
-    "id": "pyro",
+    "id": "s18_azir",
     "name": "阿兹尔",
     "cost": 3,
     "traits": [
@@ -749,7 +749,7 @@
     }
   },
   {
-    "id": "frost",
+    "id": "s18_diana",
     "name": "黛安娜",
     "cost": 3,
     "traits": [
@@ -777,7 +777,7 @@
     }
   },
   {
-    "id": "cavalier",
+    "id": "s18_hecarim",
     "name": "赫卡里姆",
     "cost": 3,
     "traits": [
@@ -803,7 +803,7 @@
     }
   },
   {
-    "id": "marksman",
+    "id": "s18_kogmaw",
     "name": "克格莫",
     "cost": 3,
     "traits": [
@@ -829,7 +829,7 @@
     }
   },
   {
-    "id": "warmage",
+    "id": "s18_fiddlesticks",
     "name": "费德提克",
     "cost": 3,
     "traits": [
@@ -857,7 +857,7 @@
     }
   },
   {
-    "id": "reaper",
+    "id": "s18_rengar",
     "name": "雷恩加尔",
     "cost": 3,
     "traits": [
@@ -881,7 +881,7 @@
     }
   },
   {
-    "id": "gladiator",
+    "id": "s18_masteryi",
     "name": "易",
     "cost": 3,
     "traits": [
@@ -906,7 +906,7 @@
     }
   },
   {
-    "id": "gunner",
+    "id": "s18_tristana",
     "name": "崔丝塔娜",
     "cost": 3,
     "traits": [
@@ -932,7 +932,7 @@
     }
   },
   {
-    "id": "stoneguard",
+    "id": "s18_rammus",
     "name": "拉莫斯",
     "cost": 3,
     "traits": [
@@ -958,7 +958,7 @@
     }
   },
   {
-    "id": "vi",
+    "id": "s18_vi",
     "name": "蔚",
     "cost": 3,
     "traits": [
@@ -984,7 +984,7 @@
     }
   },
   {
-    "id": "cassiopeia",
+    "id": "s18_cassiopeia",
     "name": "卡西奥佩娅",
     "cost": 3,
     "traits": [
@@ -1011,7 +1011,7 @@
     }
   },
   {
-    "id": "krug",
+    "id": "s18_krug",
     "name": "远古石甲虫",
     "cost": 3,
     "traits": [
@@ -1037,7 +1037,7 @@
     }
   },
   {
-    "id": "raptors",
+    "id": "s18_raptor",
     "name": "锋喙鸟",
     "cost": 3,
     "traits": [
@@ -1063,7 +1063,7 @@
     }
   },
   {
-    "id": "warchief",
+    "id": "s18_sett",
     "name": "瑟提",
     "cost": 4,
     "traits": [
@@ -1088,7 +1088,7 @@
     }
   },
   {
-    "id": "raider",
+    "id": "s18_aphelios",
     "name": "厄斐琉斯",
     "cost": 4,
     "traits": [
@@ -1113,7 +1113,7 @@
     }
   },
   {
-    "id": "curseguard",
+    "id": "s18_morgana",
     "name": "莫甘娜",
     "cost": 4,
     "traits": [
@@ -1140,7 +1140,7 @@
     }
   },
   {
-    "id": "deathblade",
+    "id": "s18_nidalee",
     "name": "奈德丽",
     "cost": 4,
     "traits": [
@@ -1165,7 +1165,7 @@
     }
   },
   {
-    "id": "halo",
+    "id": "s18_soraka",
     "name": "索拉卡",
     "cost": 4,
     "traits": [
@@ -1192,7 +1192,7 @@
     }
   },
   {
-    "id": "zhenyue",
+    "id": "s18_malphite",
     "name": "墨菲特",
     "cost": 4,
     "traits": [
@@ -1218,7 +1218,7 @@
     }
   },
   {
-    "id": "fleetblade",
+    "id": "s18_sivir",
     "name": "希维尔",
     "cost": 4,
     "traits": [
@@ -1243,7 +1243,7 @@
     }
   },
   {
-    "id": "duhu",
+    "id": "s18_amumu",
     "name": "阿木木",
     "cost": 4,
     "traits": [
@@ -1269,7 +1269,7 @@
     }
   },
   {
-    "id": "shadowguard",
+    "id": "s18_lillia",
     "name": "莉莉娅",
     "cost": 4,
     "traits": [
@@ -1294,7 +1294,7 @@
     }
   },
   {
-    "id": "hawkeye",
+    "id": "s18_ezreal",
     "name": "伊泽瑞尔",
     "cost": 4,
     "traits": [
@@ -1319,7 +1319,7 @@
     }
   },
   {
-    "id": "oraclemaster",
+    "id": "s18_ahri",
     "name": "阿狸",
     "cost": 4,
     "traits": [
@@ -1346,7 +1346,7 @@
     }
   },
   {
-    "id": "crimsonmark",
+    "id": "s18_brambleback",
     "name": "绯红印记树怪",
     "cost": 4,
     "traits": [
@@ -1373,7 +1373,7 @@
     }
   },
   {
-    "id": "bluegolem",
+    "id": "s18_sentinel",
     "name": "苍蓝雕纹魔像",
     "cost": 4,
     "traits": [
@@ -1401,7 +1401,7 @@
     }
   },
   {
-    "id": "titan",
+    "id": "s18_elderdragon",
     "name": "远古巨龙",
     "cost": 5,
     "traits": [
@@ -1431,7 +1431,7 @@
     }
   },
   {
-    "id": "souleater",
+    "id": "s18_kennen",
     "name": "凯南",
     "cost": 5,
     "traits": [
@@ -1457,7 +1457,7 @@
     }
   },
   {
-    "id": "emperorhunter",
+    "id": "s18_ashe",
     "name": "艾希",
     "cost": 5,
     "traits": [
@@ -1482,7 +1482,7 @@
     }
   },
   {
-    "id": "shimmer",
+    "id": "s18_lux_base_pc",
     "name": "拉克丝",
     "cost": 5,
     "traits": [
@@ -1508,7 +1508,7 @@
     }
   },
   {
-    "id": "nightowl",
+    "id": "s18_maokai",
     "name": "茂凯",
     "cost": 5,
     "traits": [
@@ -1533,7 +1533,7 @@
     }
   },
   {
-    "id": "warspirit",
+    "id": "s18_draven",
     "name": "德莱文",
     "cost": 5,
     "traits": [
@@ -1557,7 +1557,7 @@
     }
   },
   {
-    "id": "holyguard",
+    "id": "s18_taric",
     "name": "塔里克",
     "cost": 5,
     "traits": [
@@ -1583,7 +1583,7 @@
     }
   },
   {
-    "id": "ivern",
+    "id": "s18_ivern",
     "name": "艾翁",
     "cost": 5,
     "traits": [
@@ -1609,7 +1609,7 @@
     }
   },
   {
-    "id": "larune",
+    "id": "s18_alune",
     "name": "拉露恩",
     "cost": 5,
     "traits": [
@@ -1635,7 +1635,7 @@
     }
   },
   {
-    "id": "gnar",
+    "id": "s18_gnar",
     "name": "纳尔",
     "cost": 5,
     "traits": [

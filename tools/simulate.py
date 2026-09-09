@@ -35,16 +35,16 @@ from core.traits import count_traits, describe  # noqa: E402
 
 # 默认演示阵容：蓝方偏防守，红方偏爆发
 DEFAULT_BLUE = [
-    {"id": "ironwall", "star": 1, "pos": [2, 1]},
-    {"id": "stonefist", "star": 1, "pos": [3, 1]},
-    {"id": "sunarrow", "star": 1, "pos": [2, 0]},
-    {"id": "pyro", "star": 1, "pos": [4, 0]},
+    {"id": "s18_ornn", "star": 1, "pos": [2, 1]},
+    {"id": "s18_camille", "star": 1, "pos": [3, 1]},
+    {"id": "s18_caitlyn", "star": 1, "pos": [2, 0]},
+    {"id": "s18_azir", "star": 1, "pos": [4, 0]},
 ]
 DEFAULT_RED = [
-    {"id": "wolfclaw", "star": 1, "pos": [2, 2]},
-    {"id": "venom", "star": 1, "pos": [4, 2]},
-    {"id": "frost", "star": 1, "pos": [3, 3]},
-    {"id": "priest", "star": 1, "pos": [2, 3]},
+    {"id": "s18_warwick", "star": 1, "pos": [2, 2]},
+    {"id": "s18_khazix", "star": 1, "pos": [4, 2]},
+    {"id": "s18_diana", "star": 1, "pos": [3, 3]},
+    {"id": "s18_yunara", "star": 1, "pos": [2, 3]},
 ]
 
 

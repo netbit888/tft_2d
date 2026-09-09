@@ -61,7 +61,7 @@ def load_units() -> dict[str, UnitTemplate]:
 def build_team(placements: list[dict], team: str) -> list[Unit]:
     """根据布阵创建一支队伍，并应用羁绊加成。
 
-    placements 形如 [{"id": "ironwall", "star": 1, "pos": [col, row]}, ...]
+    placements 形如 [{"id": "s18_ornn", "star": 1, "pos": [col, row]}, ...]
     """
     templates = load_units()
     traits_data = load_traits()
