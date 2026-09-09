@@ -57,8 +57,8 @@ class AppDrawMixin:
     """纯绘制：HUD / 棋盘队伍 / 悬停层 / 特效 / 结果面板。"""
 
     def draw_armory(self) -> None:
-        """把自选台画在信息层之上。"""
-        draw_armory(self.screen)
+        """把自选台（当前页）画在信息层之上。"""
+        draw_armory(self.screen, self.armory_tab)
 
     def draw_op_buttons(self) -> None:
         """左下角：刷新 + 购买经验按钮（金铲铲风格垂直堆叠）。"""
@@ -375,7 +375,7 @@ class AppDrawMixin:
 
     def draw_hints(self) -> None:
         you = self.game.you
-        msgs = [HINT, "F2=成装自选台"]
+        msgs = [HINT, "F2=装备自选台"]
         if you.bench:
             msgs.append(f"备战席还有 {len(you.bench)} 个棋子未上场（开战会自动补位）")
         # 需求1：观察视角提示

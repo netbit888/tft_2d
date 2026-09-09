@@ -249,10 +249,10 @@ class AppStateMixin:
             self.xp_held = False  # 中止可能的"长按买经验"
 
     def _armory_event(self, event) -> None:
-        """自选台打开时独占点击：点格获得装备，点 ✕ / 面板外关闭。"""
+        """自选台打开时独占点击：切页 / 点格获得装备，点 ✕ / 面板外关闭。"""
         if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
             return
-        g = armory_geometry()
+        g = armory_geometry(self.armory_tab)
         pos = event.pos
         if g["close"].collidepoint(pos):
             self._toggle_armory()
@@ -260,6 +260,10 @@ class AppStateMixin:
         if not g["panel"].collidepoint(pos):
             self._toggle_armory()
             return
+        for t in g["tabs"]:
+            if t["rect"].collidepoint(pos):
+                self.armory_tab = t["tab"]
+                return
         for cell in g["cells"]:
             if cell["rect"].collidepoint(pos):
                 self._grant_from_armory(cell["item_id"])

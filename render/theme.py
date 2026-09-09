@@ -146,6 +146,7 @@ def _layout(s: int) -> dict:
     armory_step_y = int(92 * s)
     armory_pad = int(20 * s)
     armory_title_h = int(46 * s)
+    armory_tab_h = int(40 * s)
     armory_foot_h = int(52 * s)
 
     # ---------- HP 血条（备战席上方一行） ----------
@@ -300,6 +301,7 @@ def _layout(s: int) -> dict:
         "ARMORY_STEP_Y": armory_step_y,
         "ARMORY_PAD": armory_pad,
         "ARMORY_TITLE_H": armory_title_h,
+        "ARMORY_TAB_H": armory_tab_h,
         "ARMORY_FOOT_H": armory_foot_h,
         # ---------- 8 人战况面板 ----------
         "ROSTER_W": roster_w,

@@ -86,7 +86,8 @@ class App(AppDrawMixin, AppStateMixin):
         self.banner: dict | None = None  # 回合横幅
         self.hover_item: int | None = None
         self.item_scroll = 0  # 装备栏背包滚动偏移（无上限背包，鼠标悬停滚轮翻页）
-        self.armory_open = False  # 成装自选台（F2 唤出/关闭）
+        self.armory_open = False  # 装备自选台（F2 唤出/关闭）
+        self.armory_tab = 0  # 自选台当前页：0=成装，1=散件（重开时保留上次页）
         self.xp_held = False  # 升级按钮是否被按住（长按连升）
         self.xp_cd = 0.0  # 长按连升冷却
         # 左键单击详情：press 记录按下起点，原地松开判为单击

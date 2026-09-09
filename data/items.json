@@ -10,25 +10,25 @@
     "glove": { "name": "拳击手套", "stats": { "crit_flat": 0.05 } }
   },
   "combine": {
-    "sword+sword": { "name": "死亡之刃",             "stats": { "ad_flat": 20 },                                "effect": "none" },
-    "sword+bow":   { "name": "麦瑞德之爪",           "stats": { "ad_flat": 10, "attack_speed_pct": 0.15 },     "effect": "giant_slayer" },
+    "sword+sword": { "name": "锐利之刃",             "stats": { "ad_flat": 20 },                                "effect": "none" },
+    "sword+bow":   { "name": "巨人捕手",             "stats": { "ad_flat": 10, "attack_speed_pct": 0.15 },     "effect": "giant_slayer" },
     "sword+wand":  { "name": "海克斯科技枪刃",       "stats": { "ad_flat": 10, "ap_flat": 10 },                "effect": "spell_vamp" },
-    "sword+chain": { "name": "守护天使",             "stats": { "ad_flat": 10, "armor_flat": 20 },             "effect": "none" },
+    "sword+chain": { "name": "夜之锋刃",             "stats": { "ad_flat": 10, "armor_flat": 20 },             "effect": "none" },
     "sword+cloak": { "name": "饮血剑",               "stats": { "ad_flat": 10, "mr_flat": 20 },                "effect": "lifesteal" },
     "sword+belt":  { "name": "斯特拉克的挑战护手",   "stats": { "ad_flat": 10, "hp_flat": 150 },               "effect": "none" },
     "sword+tear":  { "name": "朔极之矛",             "stats": { "ad_flat": 10, "mana_flat": 15 },              "effect": "none" },
     "sword+glove": { "name": "无尽之刃",             "stats": { "ad_flat": 10, "crit_flat": 0.05 },            "effect": "crit_damage" },
 
-    "bow+bow":     { "name": "疾射火炮",             "stats": { "attack_speed_pct": 0.30 },                    "effect": "none" },
+    "bow+bow":     { "name": "红霸符",               "stats": { "attack_speed_pct": 0.30 },                    "effect": "none" },
     "bow+wand":    { "name": "鬼索的狂暴之刃",       "stats": { "attack_speed_pct": 0.15, "ap_flat": 10 },     "effect": "ramping_as" },
     "bow+chain":   { "name": "泰坦的坚决",           "stats": { "attack_speed_pct": 0.15, "armor_flat": 20 },  "effect": "none" },
     "bow+cloak":   { "name": "卢安娜的飓风",         "stats": { "attack_speed_pct": 0.15, "mr_flat": 20 },     "effect": "multi_shot" },
-    "bow+belt":    { "name": "利维坦",               "stats": { "attack_speed_pct": 0.15, "hp_flat": 150 },    "effect": "none" },
+    "bow+belt":    { "name": "纳什之牙",             "stats": { "attack_speed_pct": 0.15, "hp_flat": 150 },    "effect": "none" },
     "bow+tear":    { "name": "斯塔缇克电刃",         "stats": { "attack_speed_pct": 0.15, "mana_flat": 15 },   "effect": "none" },
     "bow+glove":   { "name": "最后的轻语",           "stats": { "attack_speed_pct": 0.15, "crit_flat": 0.05 }, "effect": "armor_pen" },
 
     "wand+wand":   { "name": "灭世者的死亡之帽",     "stats": { "ap_flat": 20 },                               "effect": "ap_amp" },
-    "wand+chain":  { "name": "王冠守卫",             "stats": { "ap_flat": 10, "armor_flat": 20 },             "effect": "none" },
+    "wand+chain":  { "name": "冕卫",                 "stats": { "ap_flat": 10, "armor_flat": 20 },             "effect": "none" },
     "wand+cloak":  { "name": "离子火花",             "stats": { "ap_flat": 10, "mr_flat": 20 },                "effect": "none" },
     "wand+belt":   { "name": "莫雷洛秘典",           "stats": { "ap_flat": 10, "hp_flat": 150 },               "effect": "grievous_wounds" },
     "wand+tear":   { "name": "大天使之杖",           "stats": { "ap_flat": 10, "mana_flat": 15 },              "effect": "mana_ap" },
@@ -37,20 +37,20 @@
     "chain+chain": { "name": "荆棘之甲",             "stats": { "armor_flat": 40 },                            "effect": "thorns" },
     "chain+cloak": { "name": "石像鬼石板甲",         "stats": { "armor_flat": 20, "mr_flat": 20 },             "effect": "none" },
     "chain+belt":  { "name": "红色增益",             "stats": { "armor_flat": 20, "hp_flat": 150 },            "effect": "burn" },
-    "chain+tear":  { "name": "冰霜之心",             "stats": { "armor_flat": 20, "mana_flat": 15 },           "effect": "none" },
-    "chain+glove": { "name": "暗夜收割者",           "stats": { "armor_flat": 20, "crit_flat": 0.05 },         "effect": "none" },
+    "chain+tear":  { "name": "圣盾使的誓约",         "stats": { "armor_flat": 20, "mana_flat": 15 },           "effect": "none" },
+    "chain+glove": { "name": "坚定之心",             "stats": { "armor_flat": 20, "crit_flat": 0.05 },         "effect": "none" },
 
     "cloak+cloak": { "name": "巨龙之爪",             "stats": { "mr_flat": 40 },                               "effect": "magic_resist" },
-    "cloak+belt":  { "name": "幽魂拳套",             "stats": { "mr_flat": 20, "hp_flat": 150 },               "effect": "none" },
+    "cloak+belt":  { "name": "薄暮法袍",             "stats": { "mr_flat": 20, "hp_flat": 150 },               "effect": "none" },
     "cloak+tear":  { "name": "适应性头盔",           "stats": { "mr_flat": 20, "mana_flat": 15 },              "effect": "none" },
     "cloak+glove": { "name": "水银饰带",             "stats": { "mr_flat": 20, "crit_flat": 0.05 },            "effect": "none" },
 
     "belt+belt":   { "name": "狂徒铠甲",             "stats": { "hp_flat": 300 },                              "effect": "regen" },
-    "belt+tear":   { "name": "救赎",                 "stats": { "hp_flat": 150, "mana_flat": 15 },             "effect": "none" },
-    "belt+glove":  { "name": "力量拳套",             "stats": { "hp_flat": 150, "crit_flat": 0.05 },           "effect": "none" },
+    "belt+tear":   { "name": "振奋盔甲",             "stats": { "hp_flat": 150, "mana_flat": 15 },             "effect": "none" },
+    "belt+glove":  { "name": "强袭者的链枷",         "stats": { "hp_flat": 150, "crit_flat": 0.05 },           "effect": "none" },
 
     "tear+tear":   { "name": "蓝霸符",               "stats": { "mana_flat": 30 },                             "effect": "none" },
-    "tear+glove":  { "name": "不稳定混合物",         "stats": { "mana_flat": 15, "crit_flat": 0.05 },          "effect": "none" },
+    "tear+glove":  { "name": "正义之手",             "stats": { "mana_flat": 15, "crit_flat": 0.05 },          "effect": "none" },
     "glove+glove": { "name": "窃贼手套",             "stats": { "crit_flat": 0.10 },                           "effect": "none" }
   }
 }
