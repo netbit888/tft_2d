@@ -620,23 +620,46 @@ def combine_preview_records(a: str, b: str) -> list:
 
 
 def trait_records(trait_id: str, count: int) -> list:
+    """羁绊悬停详情：官方同步羁绊显示官方描述/档位，并注明效果未实装。"""
+    from .board_view import trait_color
+
     info = load_traits().get(trait_id)
     if info is None:
         return []
-    color = theme.TRAIT_COLORS.get(trait_id, theme.TRAIT_FALLBACK)
+    color = trait_color(trait_id)
     records: list = [
         (f"{info['name']} 羁绊（当前 {count} 个单位）", theme.FS_SMALL, color),
         (info.get("desc", ""), theme.FS_TINY, theme.TEXT_DIM),
     ]
-    for tier in info.get("tiers", []):
-        need = tier["count"]
+    if info.get("tiers"):
+        # 旧式自设羁绊：真的会加属性
+        for tier in info["tiers"]:
+            need = tier["count"]
+            achieved = count >= need
+            records.append(
+                (
+                    f"{need} 个单位：{_mods_text(tier.get('mods', {}))}",
+                    theme.FS_TINY,
+                    theme.GOLD if achieved else theme.TEXT_DIM,
+                )
+            )
+        return records
+
+    # 官方同步羁绊：只标进度，效果未实装
+    levels = [int(x) for x in info.get("levels", [])]
+    for need in levels:
         achieved = count >= need
+        mark = "已达成" if achieved else f"还差 {max(1, need - count)} 个"
         records.append(
             (
-                f"{need} 个单位：{_mods_text(tier.get('mods', {}))}",
+                f"{need} 个单位：{mark}",
                 theme.FS_TINY,
                 theme.GOLD if achieved else theme.TEXT_DIM,
             )
+        )
+    if not info.get("implemented"):
+        records.append(
+            ("官方同名羁绊，效果未实装（仅同步名称与归属）", theme.FS_MICRO, theme.GOLD)
         )
     return records
 

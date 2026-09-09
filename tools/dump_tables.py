@@ -112,12 +112,15 @@ def ability_cell(ab) -> str:
 
 
 def md_table(headers: list[str], rows: list[list[str]]) -> str:
-    """把列表渲染成 GFM 表格文本。"""
+    """把列表渲染成 GFM 表格文本（单元格内管道符统一转义，防破坏列）。"""
+    def esc(s: str) -> str:
+        return s.replace("|", "\\|").replace("\n", " ")
+
     lines = ["| " + " | ".join(headers) + " |"]
     lines.append("|" + "---|" * len(headers))
     for row in rows:
         assert len(row) == len(headers), (headers, row)
-        lines.append("| " + " | ".join(row) + " |")
+        lines.append("| " + " | ".join(esc(c) for c in row) + " |")
     return "\n".join(lines) + "\n"
 
 
@@ -166,24 +169,57 @@ def section_units(traits_data: dict) -> str:
     return f"\n## 一、棋子\n\n全场棋子 {total} 个。\n" + "\n".join(out) + note
 
 
+def _trait_cell(data: dict) -> str:
+    """羁绊展示文案：旧式自设(有 tiers/mods)给加成文本，官方同步的给描述+未实装标注。"""
+    parts = []
+    if data.get("tiers"):
+        for tier in data["tiers"]:
+            parts.append(f"**{tier['count']} 人**：{fmt_mods(tier.get('mods', {}))}")
+    return "；".join(parts)
+
+
 def section_traits(traits_data: dict) -> str:
     templates = load_units()
-    headers = ["id", "名称", "效果范围", "携带棋子（按 json 顺序）"]
-    rows = []
-    for tid, data in traits_data.items():
-        members = [t.name for t in templates.values() if tid in t.traits]
-        desc = data.get("desc", "")
-        tiers = []
-        for tier in data.get("tiers", []):
-            tiers.append(f"**{tier['count']} 人**：{fmt_mods(tier.get('mods', {}))}")
-        cell_effects = "；".join(tiers) or "（无档位）"
-        cell = f"{desc}<br>{cell_effects}"
-        rows.append([tid, data.get("name", tid), cell, f"{len(members)} 个：{'、'.join(members)}"])
-    return (
-        "\n## 二、羁绊\n\n"
-        "规则：同名棋子只计一次；取满足人数的最高档位；加成只作用于拥有该羁绊的棋子。\n"
-        + md_table(headers, rows)
+    intro = (
+        "\n## 二、羁绊（官方名称与归属已同步，效果未实装）\n"
+        "\n> 棋子归属与羁绊名称同步官方赛季数据（生成：`tools/build_official_traits.py`，"
+        "数据源见 `tools/fetch_official_traits.py`）。"
+        "**官方同名羁绊的效果本作未实装**：战斗不提供任何属性加成，仅保留官方名称、"
+        "种族/职业归属与人数档位，作为图鉴与运营参考；原自设羁绊（战士/护卫/法师/迅捷/"
+        "刺客/骑士/猎手/统领）已全部移除。\n"
     )
+    labels = {"race": "种族", "job": "职业"}
+    order = ["race", "job"]
+    extra_kind = [k for k in set(traits_data[k].get("kind", "custom")
+                                 for k in traits_data) - set(order)]
+    kind_seq = order + sorted(extra_kind)
+
+    out = [intro]
+    total = 0
+    for kind in kind_seq:
+        items = [(tid, d) for tid, d in traits_data.items() if d.get("kind", "custom") == kind]
+        if not items:
+            continue
+        total += len(items)
+        out.append(f"\n### {labels.get(kind, kind)}羁绊（{len(items)} 个）\n")
+        headers = ["id", "名称", "人数档位", "描述", "状态", "携带棋子（按 json 顺序）"]
+        rows = []
+        for tid, data in items:
+            members = [t.name for t in templates.values() if tid in t.traits]
+            levels = "、".join(f"{x} 人" for x in data.get("levels", [])) or "—"
+            effect = _trait_cell(data)
+            desc = data.get("desc") or data.get("detail", "") or ""
+            if effect:
+                desc = f"{desc}（{effect}）" if desc else effect
+            status = "已实装" if data.get("implemented") else "未实装"
+            rows.append([
+                tid, data.get("name", tid), levels, desc, status,
+                f"{len(members)} 个：{'、'.join(members) if members else '—'}",
+            ])
+        out.append(md_table(headers, rows))
+    if not kind_seq:
+        out.append("（无）")
+    return "".join(out)
 
 
 def section_base_items() -> str:

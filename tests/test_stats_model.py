@@ -95,16 +95,18 @@ def test_build_team_writes_base_fields_into_unit():
 
 def test_ramping_as_stacks_on_base_attack_speed():
     """羊刀叠层 = 基础攻速 × 叠层百分比，与装备攻速%加性叠加，不互相乘。"""
+    tpl = load_units()[DART]
+    base_as = tpl.attack_speed * AS_STAR_MULTIPLIER[3]
     u = build_team(
         [{"id": DART, "star": 3, "pos": [0, 0], "equip": [ItemInstance("bow+bow")]}],
         "blue",
     )[0]
-    # 3 星基础攻速 = 0.8×1.25 = 1.0；羊刀自带 +30% → 面板 1.3
-    assert u.base_attack_speed == pytest.approx(1.0)
-    assert u.attack_speed == pytest.approx(1.3)
+    # 3 星基础攻速 = 官方基础攻速 × 1.25；羊刀自带 +30% → 面板 ×1.3
+    assert u.base_attack_speed == pytest.approx(base_as)
+    assert u.attack_speed == pytest.approx(base_as * 1.3)
     u.as_stack = 0.30  # 相当于 5 次命中（每次 +6%）
-    # 加性：1.3 + 1.0×0.30 = 1.6；若乘性则会是 1.3×1.3=1.69
-    assert effective_attack_speed(u) == pytest.approx(1.6)
+    # 加性：面板 + 基础×0.30；若乘性则会是 (×1.3)×(×1.3)，更高
+    assert effective_attack_speed(u) == pytest.approx(base_as * 1.6)
 
 
 def test_ramping_as_respects_global_cap():
@@ -132,8 +134,9 @@ def _single_duel(blue_pl: dict, red_pl: dict, mutate=None) -> tuple[object, obje
 
 def test_three_force_buff_scales_with_base_ad_only():
     """三相 +20% 只放大佩戴者基础攻击；装备提供的额外 AD 不参与放大。"""
-    target_tpl = load_units()["ironwall"]  # 护甲 45 的近战沙包
-    stone = load_units()["stonefist"]  # 基础攻击 62
+    target_tpl = load_units()["ironwall"]
+    stone = load_units()["stonefist"]
+    base_ad = stone.ad  # 佩戴者 1 星基础攻击（官方同步值）
     equip_ad_flat = 10  # 三相自带 +10 攻击
 
     def run(three_active: bool):
@@ -149,14 +152,14 @@ def test_three_force_buff_scales_with_base_ad_only():
         assert len(_physical_damage(c)) == 1
         return c, _physical_damage(c)[0]
 
-    # 面板攻击 = 基础 62 + 三相装备 10 = 72；强化增量 = 基础攻击 × 20%
+    # 面板攻击 = 基础 + 三相 10；强化增量 = 基础攻击 × 20%（不吃装备额外 AD）
     c, dmg_active = run(True)
-    expected_raw = 62 + equip_ad_flat + 62 * ON_CAST_AD  # 84.4
+    expected_raw = base_ad + equip_ad_flat + base_ad * ON_CAST_AD
     expected = expected_raw * 100.0 / (100.0 + target_tpl.armor)
     assert dmg_active == pytest.approx(expected)
 
-    # 旧式“整面板 ×1.2”会比 84.4 更高：验证当前实现确实只吃基础攻击
-    old_raw = (62 + equip_ad_flat) * (1.0 + ON_CAST_AD)
+    # 旧式“整面板 ×1.2”会更高：验证当前实现确实只吃基础攻击
+    old_raw = (base_ad + equip_ad_flat) * (1.0 + ON_CAST_AD)
     old_dmg = old_raw * 100.0 / (100.0 + target_tpl.armor)
     assert old_dmg > expected + 1.0
 

@@ -11,15 +11,21 @@ from .loader import load_traits, load_units
 from .player import MAX_BENCH, MAX_LEVEL, Player, buy_xp
 from .rng import Rng
 from .shop import Shop, buy
-from .traits import active_tier, count_traits_from_tids
+from .traits import count_traits_from_tids, trait_thresholds
 
 MAX_BUYS_PER_ROUND = 10
+
+
+def _reached_level(trait_def: dict, count: int) -> int:
+    """当前人数命中的最高档位（跨过任一档即算一次“升档”）。"""
+    return max([lv for lv in trait_thresholds(trait_def) if count >= lv], default=0)
 
 
 def synergy_gain(tids: list[str], new_tid: str) -> float:
     """买入 new_tid 能带来多少羁绊收益。
 
     激活新档位权重最高，只是让已有羁绊多一层则权重较低。
+    （官方羁绊档位同样计入——虽然本作效果未实装，仍让 AI 保持“凑羁绊”的运营习惯。）
     """
     templates = load_units()
     traits_data = load_traits()
@@ -31,9 +37,9 @@ def synergy_gain(tids: list[str], new_tid: str) -> float:
         trait_def = traits_data.get(t)
         if trait_def is None:
             continue
-        b = active_tier(trait_def, before.get(t, 0))
-        a = active_tier(trait_def, after.get(t, 0))
-        if (a["count"] if a else 0) > (b["count"] if b else 0):
+        b = _reached_level(trait_def, before.get(t, 0))
+        a = _reached_level(trait_def, after.get(t, 0))
+        if a > b:
             gain += 10.0  # 激活/升档
         elif after.get(t, 0) > before.get(t, 0):
             gain += 1.0  # 只是多一层

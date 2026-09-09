@@ -65,13 +65,21 @@ def count_traits(units: list[Unit]) -> dict[str, int]:
 
 
 def active_tier(trait_def: dict, count: int) -> dict | None:
-    """返回满足条件的最高档位定义。"""
+    """返回满足条件的最高档位定义（只认旧式 tiers/mods 结构）。"""
     best = None
     for tier in trait_def.get("tiers", []):
         if count >= tier["count"]:
             if best is None or tier["count"] > best["count"]:
                 best = tier
     return best
+
+
+def trait_thresholds(trait_def: dict) -> list[int]:
+    """羁绊的激活人数档位：官方同步用 levels，旧式自设用 tiers 的 count。"""
+    levels = trait_def.get("levels")
+    if isinstance(levels, list) and levels:
+        return [int(x) for x in levels]
+    return [int(t["count"]) for t in trait_def.get("tiers", [])]
 
 
 def trait_mods_by_trait(counts: dict[str, int], traits_data: dict) -> dict[str, TraitMods]:
@@ -97,31 +105,50 @@ def mods_for_unit(unit: Unit, mods_by_trait: dict[str, TraitMods]) -> TraitMods:
 
 
 def describe(counts: dict[str, int], traits_data: dict) -> list[str]:
-    """生成羁绊面板文案，例如「战士 2（+12 攻击力）」。"""
+    """生成羁绊面板文案。
+
+    - 旧式自设羁绊（有 tiers/mods）：如「战士 2（+12 攻击力）」；
+    - 官方同步羁绊（implemented=false，只有 levels）：如「永恒之森 3人，达 3 人档（官方效果未实装）」。
+    """
+    key_map = {
+        "ad_flat": "攻击力",
+        "ad_pct": "攻击力",
+        "ap_flat": "法强",
+        "armor_flat": "护甲",
+        "mr_flat": "魔抗",
+        "attack_speed_pct": "攻速",
+        "crit_flat": "暴击率",
+        "hp_flat": "生命值",
+        "hp_pct": "生命值",
+        "damage_amp": "伤害",
+    }
     lines = []
     for trait_id, count in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])):
         trait_def = traits_data.get(trait_id)
         if trait_def is None:
             continue
-        tier = active_tier(trait_def, count)
-        if tier is None:
+        name = trait_def.get("name", trait_id)
+        thresholds = trait_thresholds(trait_def)
+        if not thresholds:
             continue
-        key_map = {
-            "ad_flat": "攻击力",
-            "ad_pct": "攻击力",
-            "ap_flat": "法强",
-            "armor_flat": "护甲",
-            "mr_flat": "魔抗",
-            "attack_speed_pct": "攻速",
-            "crit_flat": "暴击率",
-            "hp_flat": "生命值",
-            "hp_pct": "生命值",
-            "damage_amp": "伤害",
-        }
-        parts = []
-        for k, v in tier.get("mods", {}).items():
-            label = key_map.get(k, k)
-            value = f"{v * 100:.0f}%" if k.endswith("_pct") else f"{v:g}"
-            parts.append(f"+{value} {label}")
-        lines.append(f"{trait_def['name']} {count}（{'，'.join(parts)}）")
+
+        # 旧式自设羁绊：真的会加属性
+        if trait_def.get("tiers"):
+            tier = active_tier(trait_def, count)
+            if tier is None:
+                continue
+            parts = []
+            for k, v in tier.get("mods", {}).items():
+                label = key_map.get(k, k)
+                value = f"{v * 100:.0f}%" if k.endswith("_pct") else f"{v:g}"
+                parts.append(f"+{value} {label}")
+            lines.append(f"{name} {count}（{'，'.join(parts)}）")
+            continue
+
+        # 官方同步羁绊：只显示达成档位，标注效果未实装
+        reached = [lv for lv in thresholds if count >= lv]
+        if not reached:
+            continue
+        note = "" if trait_def.get("implemented") else "，官方效果未实装"
+        lines.append(f"{name} {count}人，达 {reached[-1]} 人档{note}")
     return lines

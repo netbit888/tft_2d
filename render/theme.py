@@ -183,16 +183,7 @@ def _layout(s: int) -> dict:
         "GRID_B": (38, 42, 53),
         "SELF_ROW_TINT": (54, 68, 98),
         "ENEMY_ROW_TINT": (78, 52, 60),
-        "TRAIT_COLORS": {
-            "warrior": (216, 98, 78),
-            "guardian": (86, 142, 214),
-            "mage": (158, 112, 222),
-            "swift": (86, 192, 142),
-            "assassin": (232, 92, 150),
-            "knight": (210, 170, 84),
-            "hunter": (222, 158, 72),
-            "warlord": (88, 196, 208),
-        },
+        # 羁绊颜色改为运行时按官方稀有度字段(color)映射 RARITY 边缘色（见 board_view.trait_color）
         "TRAIT_FALLBACK": (124, 132, 148),
         # ---------- 字体 ----------
         "FS_TITLE": int(26 * s),

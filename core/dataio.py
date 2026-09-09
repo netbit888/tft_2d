@@ -70,21 +70,36 @@ def check_data() -> list[str]:
         return [f"缺少数据文件：{exc}"]
 
     # ---- traits.json ----
+    # 两种形态：
+    # - 官方同步羁绊：kind/levels/color/desc + implemented=false（效果未实装，无 mods）
+    # - 旧式自设羁绊：tiers[{count, mods}]（真正会给属性加成）
     for tid, data in traits.items():
         if not isinstance(data, dict) or not data.get("name"):
             errors.append(f"羁绊 {tid} 缺少 name")
             continue
-        tiers = data.get("tiers")
-        if not isinstance(tiers, list) or not tiers:
-            errors.append(f"羁绊 {tid} 没有有效 tiers")
-            continue
-        for i, tier in enumerate(tiers):
+        kind = data.get("kind")
+        if kind is not None and kind not in ("race", "job", "custom"):
+            errors.append(f"羁绊 {tid} kind 非法：{kind}")
+        levels = data.get("levels")
+        if levels is not None:
+            if (
+                not isinstance(levels, list)
+                or not levels
+                or any(not isinstance(x, int) or x < 1 for x in levels)
+                or levels != sorted(levels)
+            ):
+                errors.append(f"羁绊 {tid} levels 应为递增正整数列表：{levels}")
+            if not isinstance(data.get("implemented", False), bool):
+                errors.append(f"羁绊 {tid} implemented 应为布尔值")
+        for i, tier in enumerate(data.get("tiers", [])):
             count = tier.get("count")
             if not isinstance(count, int) or count < 1:
                 errors.append(f"羁绊 {tid} 第 {i + 1} 档 count 非法：{tier}")
             for k in tier.get("mods", {}):
                 if k not in ALLOWED_STAT_KEYS:
                     errors.append(f"羁绊 {tid} 使用了未知属性 {k}")
+        if levels is None and not data.get("tiers"):
+            errors.append(f"羁绊 {tid} 既无 levels 也无 tiers")
 
     # ---- units.json ----
     ids = [u.get("id") for u in units]

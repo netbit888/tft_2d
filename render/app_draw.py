@@ -24,13 +24,14 @@ from core.traits import count_traits_from_tids
 
 from . import theme
 from .armory_view import draw_armory
-from .assets import render, text
+from .assets import render, text, text_size
 from .board_view import (
     cell_at,
     cell_rect,
     draw_deploy_highlight,
     draw_piece,
     draw_placements,
+    trait_color,
     visual_from_tid,
 )
 from .champ_view import draw_champ_picker
@@ -295,9 +296,9 @@ class AppDrawMixin:
             info = traits_data.get(tid)
             if info is None:
                 continue
-            color = theme.TRAIT_COLORS.get(tid, theme.TRAIT_FALLBACK)
-            tiers = [t["count"] for t in info.get("tiers", [])]
-            active = any(count >= t for t in tiers)
+            color = trait_color(tid)
+            levels = info.get("levels") or [t["count"] for t in info.get("tiers", [])]
+            active = bool(levels) and count >= levels[0]
 
             # 记录整行命中区，供悬停详情 tooltip 使用
             self._trait_hits.append((pygame.Rect(x, y, width, theme.SIDE_LINE_H), tid, count))
@@ -312,20 +313,17 @@ class AppDrawMixin:
                 width=1,
             )
 
+            # 名称 + 人数：官方名称长短不一，按测量宽度紧跟排版，避免重叠
             name_color = theme.TEXT if active else theme.TEXT_DIM
-            text(self.screen, info["name"], theme.FS_SMALL, name_color, (x + dot + 8 * s, y))
-            text(
-                self.screen,
-                str(count),
-                theme.FS_SMALL,
-                name_color,
-                (x + dot + 8 * s + 52 * s, y),
-            )
+            nx = x + dot + 8 * s
+            text(self.screen, info["name"], theme.FS_SMALL, name_color, (nx, y))
+            cnt_x = nx + text_size(info["name"], theme.FS_SMALL)[0] + 6 * s
+            text(self.screen, str(count), theme.FS_SMALL, name_color, (cnt_x, y))
 
             # 档位进度小菱形
-            px = x + dot + 8 * s + 72 * s
+            px = cnt_x + text_size(str(count), theme.FS_SMALL)[0] + 8 * s
             py = y + theme.SIDE_LINE_H // 2
-            for need in tiers:
+            for need in levels:
                 half = max(3, int(5 * s))
                 pts = [(px, py - half), (px + half, py), (px, py + half), (px - half, py)]
                 pygame.draw.polygon(
@@ -511,7 +509,7 @@ class AppDrawMixin:
         # 左侧羁绊行：说明 + 各档位阈值
         for rect, tid, count in self._trait_hits:
             if rect.collidepoint(mouse):
-                return trait_records(tid, count), theme.TRAIT_COLORS.get(tid, theme.TRAIT_FALLBACK)
+                return trait_records(tid, count), trait_color(tid)
 
         # 装备栏：属性 + 特效 + 当前能合的配方
         iidx = item_slot_at(mouse, self.item_scroll, len(you.item_bench))

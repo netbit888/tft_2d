@@ -128,6 +128,22 @@ class PieceVisual:
     show_bars: bool = False  # 只有战斗阶段画血条/蓝条
 
 
+def trait_color(tid: str) -> tuple:
+    """羁绊色：官方同步的用 color 稀有度（1灰~5金）映射 RARITY 边缘色，其余回退。"""
+    info = load_traits().get(tid)
+    if info is None:
+        return theme.TRAIT_FALLBACK
+    spec = str(info.get("color", ""))
+    digits = [
+        int(x) for x in spec.split("|")
+        if x.strip().lstrip("-").isdigit() and int(x) > 0
+    ]
+    rarity_level = max(digits) if digits else 0
+    if rarity_level in theme.RARITY:
+        return theme.RARITY[rarity_level]["edge"]
+    return theme.TRAIT_FALLBACK
+
+
 def trait_tag(traits: tuple[str, ...]) -> tuple[str, tuple]:
     """取第一个羁绊作为角标（单字 + 颜色）。"""
     if not traits:
@@ -135,7 +151,7 @@ def trait_tag(traits: tuple[str, ...]) -> tuple[str, tuple]:
     traits_data = load_traits()
     tid = traits[0]
     name = traits_data.get(tid, {}).get("name", tid)
-    return name[0], theme.TRAIT_COLORS.get(tid, theme.TRAIT_FALLBACK)
+    return name[0], trait_color(tid)
 
 
 def visual_from_tid(tid: str, star: int, team: str) -> PieceVisual:
