@@ -11,6 +11,9 @@
 
 from __future__ import annotations
 
+import math
+from dataclasses import dataclass
+
 import pygame
 
 from core.combat import effective_attack_speed
@@ -28,7 +31,240 @@ from core.stats import compute_stats
 from core.traits import TraitMods, count_traits_from_tids, trait_mods_by_trait
 
 from . import theme
-from .assets import render
+from .assets import font, render
+
+# ---------- 图标网格：属性面板的“图标 + 数值 + 标签”单元格 ----------
+#
+# 记录协议在原有的 (text, size, color) 三元组之外，允许出现一个 StatGrid。
+# draw_tip 遇到 StatGrid 时用 draw_icon_row 逐行绘制成彩色图标网格，
+# 一条文本类记录（技能/羁绊/装备）仍保持普通文本，互不干扰。
+
+
+@dataclass(frozen=True)
+class StatCell:
+    """属性单元格：一种属性 = 矢量图标 + 彩色数值 + 灰色小标签。"""
+
+    icon: str  # 图标类型，见 _ICON_PAINTERS
+    value: str  # 数值文本，如 "0.60"
+    tag: str  # 标签文本，如 "攻速"
+    color: tuple  # 图标与数值的统一强调色
+
+
+@dataclass(frozen=True)
+class StatGrid:
+    """多行多列的属性网格。draw_tip 会把它当成一整条记录渲染。"""
+
+    rows: tuple[tuple[StatCell, ...], ...]
+
+    @property
+    def is_empty(self) -> bool:
+        return not self.rows
+
+
+# 属性主题色（数值与图标同色，快速区分类别）
+_HP_COL = theme.HP_GREEN  # 生命
+_AD_COL = (244, 176, 92)  # 物攻：暖金
+_AS_COL = (250, 212, 96)  # 攻速：亮金闪电
+_DEF_COL = (198, 208, 222)  # 护甲：银白
+_MR_COL = (178, 142, 255)  # 魔抗：紫
+_RANGE_COL = (112, 218, 196)  # 射程：青
+_CRIT_COL = (255, 140, 96)  # 暴击：红橙星
+
+# ---------- 矢量小图标（不依赖字体里的 emoji，各平台渲染一致） ----------
+
+_ICON_CACHE: dict[tuple, pygame.Surface] = {}
+
+
+def _circle(surface, color, cx: float, cy: float, r: float, d: int, width: int = 0):
+    pygame.draw.circle(surface, color, (int(cx * d), int(cy * d)), max(1, int(r * d)), width)
+
+
+def _poly(surface, color, pts, d: int):
+    pygame.draw.polygon(surface, color, [(int(x * d), int(y * d)) for x, y in pts])
+
+
+def _rect(surface, color, rect, d: int):
+    pygame.draw.rect(surface, color, pygame.Rect(int(rect[0] * d), int(rect[1] * d), max(1, int(rect[2] * d)), max(1, int(rect[3] * d))))
+
+
+def _stroke(surface, color, pts, d: int, closed: bool, w: int):
+    """折线描边（水滴空心等）。w 用 px，不再按 d 放缩。"""
+    pygame.draw.lines(surface, color, closed, [(int(x * d), int(y * d)) for x, y in pts], w)
+
+
+def _icon_hp(d: int, color):
+    s = pygame.Surface((d, d), pygame.SRCALPHA)
+    # 两颗圆 + 收底三角形凑成心形
+    _circle(s, color, 0.30, 0.31, 0.28, d)
+    _circle(s, color, 0.70, 0.31, 0.28, d)
+    _poly(s, color, [(0.05, 0.40), (0.95, 0.40), (0.5, 0.97)], d)
+    return s
+
+
+def _icon_ad(d: int, color):
+    """向右的剑：刃 + 剑尖 + 护手 + 柄。"""
+    s = pygame.Surface((d, d), pygame.SRCALPHA)
+    _rect(s, color, (0.18, 0.43, 0.52, 0.14), d)
+    _poly(s, color, [(0.70, 0.40), (0.70, 0.60), (0.92, 0.50)], d)
+    _rect(s, color, (0.70, 0.28, 0.10, 0.44), d)
+    _rect(s, color, (0.80, 0.46, 0.12, 0.08), d)
+    return s
+
+
+def _icon_as(d: int, color):
+    s = pygame.Surface((d, d), pygame.SRCALPHA)
+    _poly(s, color, [(0.60, 0.04), (0.22, 0.52), (0.47, 0.52), (0.40, 0.96), (0.78, 0.42), (0.54, 0.42)], d)
+    return s
+
+
+def _icon_defense(d: int, color, inner: bool = False):
+    s = pygame.Surface((d, d), pygame.SRCALPHA)
+    _poly(s, color, [(0.5, 0.03), (0.92, 0.16), (0.92, 0.56), (0.5, 0.97), (0.08, 0.56), (0.08, 0.16)], d)
+    if inner:  # 魔抗：盾中嵌套一圈，与护甲区分
+        _circle(s, color, 0.5, 0.45, 0.20, d, width=max(1, int(0.07 * d)))
+    return s
+
+
+def _icon_range(d: int, color):
+    s = pygame.Surface((d, d), pygame.SRCALPHA)
+    w = max(1, int(0.10 * d))
+    # 弓臂（左弧线）
+    _stroke(s, color, [(0.10, 0.04), (0.30, 0.16), (0.36, 0.5), (0.30, 0.84), (0.10, 0.96)], d, False, w)
+    # 弓弦（右侧竖线）
+    _stroke(s, color, [(0.32, 0.10), (0.32, 0.90)], d, False, w)
+    # 一支小箭指向弦心
+    _stroke(s, color, [(0.44, 0.22), (0.16, 0.78)], d, False, w)
+    return s
+
+
+def _icon_crit(d: int, color):
+    s = pygame.Surface((d, d), pygame.SRCALPHA)
+    # 八芒星（四长四短交错），最像“暴击火花”
+    pts = []
+    for i in range(16):
+        ang = math.pi * 2 * i / 16
+        r = 0.46 if i % 2 == 0 else 0.18
+        pts.append((0.5 + r * math.cos(ang), 0.5 + r * math.sin(ang)))
+    _poly(s, color, pts, d)
+    return s
+
+
+def _icon_mana(d: int, color, filled: bool):
+    s = pygame.Surface((d, d), pygame.SRCALPHA)
+    w = max(1, int(0.14 * d))
+    if filled:  # 满法力：实心水滴
+        _circle(s, color, 0.5, 0.36, 0.27, d)
+        _poly(s, color, [(0.14, 0.52), (0.86, 0.52), (0.5, 0.96)], d)
+    else:  # 初始法力：空心水滴
+        _circle(s, color, 0.5, 0.36, 0.27, d, width=w)
+        _stroke(s, color, [(0.18, 0.50), (0.82, 0.50), (0.5, 0.94)], d, True, w)
+    return s
+
+
+_ICON_PAINTERS = {
+    "hp": lambda d, c: _icon_hp(d, c),
+    "ad": lambda d, c: _icon_ad(d, c),
+    "as": lambda d, c: _icon_as(d, c),
+    "armor": lambda d, c: _icon_defense(d, c),
+    "mr": lambda d, c: _icon_defense(d, c, inner=True),
+    "range": lambda d, c: _icon_range(d, c),
+    "crit": lambda d, c: _icon_crit(d, c),
+    "start_mana": lambda d, c: _icon_mana(d, c, filled=False),
+    "max_mana": lambda d, c: _icon_mana(d, c, filled=True),
+}
+
+
+def icon_surface(kind: str, d: int, color) -> pygame.Surface:
+    """按类型绘制一张 d x d 的透明小图标（带缓存）。"""
+    key = (kind, d, tuple(color))
+    img = _ICON_CACHE.get(key)
+    if img is None:
+        painter = _ICON_PAINTERS.get(kind)
+        img = painter(d, color) if painter else pygame.Surface((d, d), pygame.SRCALPHA)
+        if len(_ICON_CACHE) > 300:
+            _ICON_CACHE.clear()
+        _ICON_CACHE[key] = img
+    return img
+
+
+def _cell_w(cell: StatCell, vsize: int, tsize: int, icon_d: int) -> int:
+    """一个属性单元格的宽度 = 图标 + 间隙 + max(数值宽, 标签宽)。"""
+    s = theme.S
+    vw = font(vsize).size(cell.value)[0]
+    tw = font(tsize).size(cell.tag)[0]
+    return icon_d + int(4 * s) + max(vw, tw)
+
+
+def _cell_h(vsize: int, tsize: int) -> int:
+    s = theme.S
+    return font(vsize).get_height() + int(1 * s) + font(tsize).get_height()
+
+
+def _draw_stat_grid(surface, grid: StatGrid, x: int, y: int) -> None:
+    """把 StatGrid 画成等列宽的表格，列内各项左缘对齐。"""
+    s = theme.S
+    vsize, tsize = theme.FS_SMALL, theme.FS_MICRO
+    icon_d = max(12, int(15 * s))
+    cols = max(len(row) for row in grid.rows)
+    col_w = [0] * cols
+    for row in grid.rows:
+        for i, cell in enumerate(row):
+            col_w[i] = max(col_w[i], _cell_w(cell, vsize, tsize, icon_d))
+    col_gap = int(12 * s)
+    row_gap = int(5 * s)
+    row_h = _cell_h(vsize, tsize)
+    val_h = font(vsize).get_height()
+
+    cy = y
+    for row in grid.rows:
+        cx = x
+        for ci, cell in enumerate(row):
+            # 图标垂直居中，数值与标签向右排
+            icon_y = cy + (row_h - icon_d) // 2
+            surface.blit(icon_surface(cell.icon, icon_d, cell.color), (cx, icon_y))
+            tx = cx + icon_d + int(4 * s)
+            surface.blit(render(cell.value, vsize, cell.color), (tx, cy))
+            surface.blit(render(cell.tag, tsize, theme.TEXT_DIM), (tx, cy + val_h + int(1 * s)))
+            cx += col_w[ci] + col_gap
+        cy += row_h + row_gap
+
+
+def draw_icon_row(surface, cells, x: int, y: int, *, vsize=None, tsize=None, icon_d=None) -> int:
+    """把一排 StatCell 从左到右画出来，返回本行占用的宽度（供外部面板复用）。
+
+    适合在侧边详情卡里直接画一行属性；单格内仍是 图标 + 数值 + 标签。
+    """
+    s = theme.S
+    vsize = vsize or theme.FS_SMALL
+    tsize = tsize or theme.FS_MICRO
+    icon_d = icon_d or max(12, int(15 * s))
+    row_h = _cell_h(vsize, tsize)
+    val_h = font(vsize).get_height()
+
+    cx = x
+    cy = y
+    for cell in cells:
+        icon_y = cy + (row_h - icon_d) // 2
+        surface.blit(icon_surface(cell.icon, icon_d, cell.color), (cx, icon_y))
+        tx = cx + icon_d + int(4 * s)
+        surface.blit(render(cell.value, vsize, cell.color), (tx, cy))
+        surface.blit(render(cell.tag, tsize, theme.TEXT_DIM), (tx, cy + val_h + int(1 * s)))
+        cx += _cell_w(cell, vsize, tsize, icon_d) + int(10 * s)
+    return cx - x
+
+
+def _stat_grid_size(grid: StatGrid) -> tuple[int, int]:
+    s = theme.S
+    vsize, tsize = theme.FS_SMALL, theme.FS_MICRO
+    icon_d = max(12, int(15 * s))
+    cols = max(len(row) for row in grid.rows)
+    col_w = [0] * cols
+    for row in grid.rows:
+        for i, cell in enumerate(row):
+            col_w[i] = max(col_w[i], _cell_w(cell, vsize, tsize, icon_d))
+    w = sum(col_w) + int(12 * s) * (cols - 1)
+    h = _cell_h(vsize, tsize) * len(grid.rows) + int(5 * s) * (len(grid.rows) - 1)
+    return w, h
 
 # ---------- 数值 -> 文案 ----------
 
@@ -167,25 +403,27 @@ def _ability_records(ability, ap: float, max_mana: float) -> list:
     return records
 
 
-def _stats_records(stats: dict, tpl) -> list:
-    s = theme.S
+def _stats_records(stats: dict, tpl, max_mana: float) -> list:
+    """九项基础属性 = 图标 + 数值 + 标签，三行三列整整齐齐。
+
+    9 字段：生命/护甲/魔抗/物攻/攻速/射程/暴击 + 初始法力/法力上限（蓝量）。
+    数值与图标同色，红橙代表进攻、银紫代表防御、青色代表射程、蓝色代表法力。
+    """
     crit = stats["crit_chance"] * 100
     return [
-        (
-            f"生命 {stats['max_hp']:.0f}    攻击 {stats['ad']:.0f}    法强 {stats['ap']:.0f}",
-            theme.FS_SMALL,
-            theme.TEXT,
-        ),
-        (
-            f"护甲 {stats['armor']:.0f}    魔抗 {stats['magic_resist']:.0f}    攻速 {stats['attack_speed']:.2f}",
-            theme.FS_SMALL,
-            theme.TEXT,
-        ),
-        (
-            f"射程 {tpl.attack_range} 格    暴击 {crit:.0f}%",
-            theme.FS_TINY,
-            theme.TEXT_DIM,
-        ),
+        StatGrid(
+            (
+                (StatCell("hp", f"{stats['max_hp']:.0f}", "生命", _HP_COL),
+                 StatCell("ad", f"{stats['ad']:.0f}", "攻击", _AD_COL),
+                 StatCell("as", f"{stats['attack_speed']:.2f}", "攻速", _AS_COL)),
+                (StatCell("armor", f"{stats['armor']:.0f}", "护甲", _DEF_COL),
+                 StatCell("mr", f"{stats['magic_resist']:.0f}", "魔抗", _MR_COL),
+                 StatCell("range", f"{tpl.attack_range} 格", "射程", _RANGE_COL)),
+                (StatCell("crit", f"{crit:.0f}%", "暴击", _CRIT_COL),
+                 StatCell("start_mana", f"{tpl.starting_mana:.0f}", "初始蓝", theme.MANA_BLUE),
+                 StatCell("max_mana", f"{max_mana:.0f}", "满蓝", theme.MANA_BLUE)),
+            )
+        )
     ]
 
 
@@ -212,7 +450,7 @@ def unit_records(player, piece) -> list:
         ),
     ]
     records += _ability_records(tpl.ability, stats["ap"], max_mana)
-    records += _stats_records(stats, tpl)
+    records += _stats_records(stats, tpl, max_mana)
 
     if piece.equip:
         names = "、".join(item_name(it.item_id) for it in piece.equip)
@@ -407,7 +645,11 @@ def trait_records(trait_id: str, count: int) -> list:
 
 
 def draw_tip(surface: pygame.Surface, records, pos, accent=None) -> None:
-    """把记录渲染成圆角 tooltip。pos 是首选左上角，超出窗口会自动反翻。"""
+    """把记录渲染成圆角 tooltip。pos 是首选左上角，超出窗口会自动反翻。
+
+    记录既可以是 (text, size, color) 三元组，也可以是 StatGrid（图标网格），
+    网格会被 draw_icon_row 式地画成彩色属性表，宽度高度按内容自动测量。
+    """
     if not records:
         return
     s = theme.S
@@ -415,9 +657,36 @@ def draw_tip(surface: pygame.Surface, records, pos, accent=None) -> None:
     pad_x = 10 * s
     pad_y = 8 * s
 
-    imgs = [(render(t, size, color), color) for t, size, color in records]
-    w = max((i.get_width() for i, _ in imgs), default=0) + pad_x * 2
-    h = sum(i.get_height() for i, _ in imgs) + gap * (len(imgs) - 1) + pad_y * 2
+    # 标题侧条取第一条“带颜色”的记录：文本色 > 网格首格色 > 默认边框
+    accent0 = accent
+    if accent0 is None:
+        for rec in records:
+            if isinstance(rec, StatGrid):
+                if rec.rows and rec.rows[0]:
+                    accent0 = rec.rows[0][0].color
+                    break
+            else:
+                accent0 = rec[2]
+                break
+    accent = accent0 or theme.BORDER
+
+    # 先测量所有块，再统一定位，网格与文本互相不挤压
+    blocks = []  # (payload, w, h)
+    for rec in records:
+        if isinstance(rec, StatGrid):
+            if rec.is_empty:
+                continue
+            w, h = _stat_grid_size(rec)
+            blocks.append((rec, w, h))
+        else:
+            t, size, color = rec
+            img = render(t, size, color)
+            blocks.append((img, img.get_width(), img.get_height()))
+    if not blocks:
+        return
+
+    w = max(bw for _, bw, _ in blocks) + pad_x * 2
+    h = sum(bh for _, _, bh in blocks) + gap * (len(blocks) - 1) + pad_y * 2
 
     rect = pygame.Rect(int(pos[0]), int(pos[1]), w, h)
     if rect.right > theme.WINDOW_W - 4:
@@ -430,14 +699,15 @@ def draw_tip(surface: pygame.Surface, records, pos, accent=None) -> None:
     pygame.draw.rect(surface, (14, 16, 23), rect, border_radius=8)
     pygame.draw.rect(surface, theme.BORDER, rect, width=1, border_radius=8)
 
-    # 标题色侧条，让不同类别的 tooltip 一眼可分
-    accent = accent or imgs[0][1]
     bar_w = max(2, int(3 * s))
     bar = pygame.Rect(rect.x + max(1, bar_w // 2), rect.y + pad_y, bar_w, rect.height - pad_y * 2)
     pygame.draw.rect(surface, accent, bar, border_radius=bar_w)
 
     x = rect.x + pad_x + int(6 * s)
     y = rect.y + pad_y
-    for img, _ in imgs:
-        surface.blit(img, (x, y))
-        y += img.get_height() + gap
+    for payload, _, bh in blocks:
+        if isinstance(payload, StatGrid):
+            _draw_stat_grid(surface, payload, x, y)
+        else:
+            surface.blit(payload, (x, y))
+        y += bh + gap
