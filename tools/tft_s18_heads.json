@@ -1,0 +1,322 @@
+{
+ "ironwall": {
+  "name": "奥恩",
+  "head": "s18_head_ornn.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_ornn.png"
+ },
+ "stonefist": {
+  "name": "卡蜜尔",
+  "head": "s18_head_camille.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_camille.png"
+ },
+ "armiger": {
+  "name": "蕾欧娜",
+  "head": "s18_head_leona.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_leona.png"
+ },
+ "dart": {
+  "name": "韦鲁斯",
+  "head": "s18_head_varus.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_varus.png"
+ },
+ "shade": {
+  "name": "约里克",
+  "head": "s18_head_yorick.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_yorick.png"
+ },
+ "wisp": {
+  "name": "卡尔玛",
+  "head": "s18_head_karma.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_karma.png"
+ },
+ "cleaver": {
+  "name": "雷克塞",
+  "head": "s18_head_reksai.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_reksai.png"
+ },
+ "spearman": {
+  "name": "洛",
+  "head": "s18_head_rakan.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_rakan.png"
+ },
+ "stinger": {
+  "name": "阿卡丽",
+  "head": "s18_head_akali.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_akali.png"
+ },
+ "glow": {
+  "name": "维迦",
+  "head": "s18_head_veigar.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_veigar.png"
+ },
+ "rogue": {
+  "name": "霞",
+  "head": "s18_head_xayah.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_xayah.png"
+ },
+ "bluewatch": {
+  "name": "苍蓝哨戒",
+  "head": "s18_head_sentry.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_sentry.png"
+ },
+ "crimson": {
+  "name": "绯红树怪",
+  "head": "s18_head_cinderling.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_cinderling.png"
+ },
+ "kukubo": {
+  "name": "可酷伯",
+  "head": "s18_head_kobuko.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_kobuko.png"
+ },
+ "wolfclaw": {
+  "name": "沃里克",
+  "head": "s18_head_warwick.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_warwick.png"
+ },
+ "sunarrow": {
+  "name": "凯特琳",
+  "head": "s18_head_caitlyn.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_caitlyn.png"
+ },
+ "priest": {
+  "name": "芸阿娜",
+  "head": "s18_head_yunara.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_yunara.png"
+ },
+ "raptor": {
+  "name": "提莫",
+  "head": "s18_head_teemo.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_teemo.png"
+ },
+ "wraith": {
+  "name": "暗影狼",
+  "head": "s18_head_murkwolf.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_murkwolf.png"
+ },
+ "bulwark": {
+  "name": "阿利斯塔",
+  "head": "s18_head_alistar.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_alistar.png"
+ },
+ "oracle": {
+  "name": "凯尔",
+  "head": "s18_head_kayle.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_kayle.png"
+ },
+ "levin": {
+  "name": "乐芙兰",
+  "head": "s18_head_leblanc.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_leblanc.png"
+ },
+ "chief": {
+  "name": "瑟庄妮",
+  "head": "s18_head_sejuani.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_sejuani.png"
+ },
+ "banshee": {
+  "name": "伊莉丝",
+  "head": "s18_head_elise.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_elise.png"
+ },
+ "vindicator": {
+  "name": "慎",
+  "head": "s18_head_shen.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_shen.png"
+ },
+ "scuttler": {
+  "name": "峡谷迅捷蟹",
+  "head": "s18_head_scuttle.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_scuttle.png"
+ },
+ "toad": {
+  "name": "魔沼蛙",
+  "head": "s18_head_gromp.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_gromp.png"
+ },
+ "venom": {
+  "name": "卡兹克",
+  "head": "s18_head_khazix.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_khazix.png"
+ },
+ "pyro": {
+  "name": "阿兹尔",
+  "head": "s18_head_azir.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_azir.png"
+ },
+ "frost": {
+  "name": "黛安娜",
+  "head": "s18_head_diana.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_diana.png"
+ },
+ "cavalier": {
+  "name": "赫卡里姆",
+  "head": "s18_head_hecarim.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_hecarim.png"
+ },
+ "marksman": {
+  "name": "克格莫",
+  "head": "s18_head_kogmaw.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_kogmaw.png"
+ },
+ "warmage": {
+  "name": "费德提克",
+  "head": "s18_head_fiddlesticks.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_fiddlesticks.png"
+ },
+ "reaper": {
+  "name": "雷恩加尔",
+  "head": "s18_head_rengar.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_rengar.png"
+ },
+ "gladiator": {
+  "name": "易",
+  "head": "s18_head_masteryi.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_masteryi.png"
+ },
+ "gunner": {
+  "name": "崔丝塔娜",
+  "head": "s18_head_tristana.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_tristana.png"
+ },
+ "stoneguard": {
+  "name": "拉莫斯",
+  "head": "s18_head_rammus.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_rammus.png"
+ },
+ "vi": {
+  "name": "蔚",
+  "head": "s18_head_vi.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_vi.png"
+ },
+ "cassiopeia": {
+  "name": "卡西奥佩娅",
+  "head": "s18_head_cassiopeia.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_cassiopeia.png"
+ },
+ "krug": {
+  "name": "远古石甲虫",
+  "head": "s18_head_krug.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_krug.png"
+ },
+ "raptors": {
+  "name": "锋喙鸟",
+  "head": "s18_head_raptor.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_raptor.png"
+ },
+ "warchief": {
+  "name": "瑟提",
+  "head": "s18_head_sett.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_sett.png"
+ },
+ "raider": {
+  "name": "厄斐琉斯",
+  "head": "s18_head_aphelios.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_aphelios.png"
+ },
+ "curseguard": {
+  "name": "莫甘娜",
+  "head": "s18_head_morgana.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_morgana.png"
+ },
+ "deathblade": {
+  "name": "奈德丽",
+  "head": "s18_head_nidalee.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_nidalee.png"
+ },
+ "halo": {
+  "name": "索拉卡",
+  "head": "s18_head_soraka.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_soraka.png"
+ },
+ "zhenyue": {
+  "name": "墨菲特",
+  "head": "s18_head_malphite.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_malphite.png"
+ },
+ "fleetblade": {
+  "name": "希维尔",
+  "head": "s18_head_sivir.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_sivir.png"
+ },
+ "duhu": {
+  "name": "阿木木",
+  "head": "s18_head_amumu.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_amumu.png"
+ },
+ "shadowguard": {
+  "name": "莉莉娅",
+  "head": "s18_head_lillia.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_lillia.png"
+ },
+ "hawkeye": {
+  "name": "伊泽瑞尔",
+  "head": "s18_head_ezreal.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_ezreal.png"
+ },
+ "oraclemaster": {
+  "name": "阿狸",
+  "head": "s18_head_ahri.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_ahri.png"
+ },
+ "crimsonmark": {
+  "name": "绯红印记树怪",
+  "head": "s18_head_brambleback.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_brambleback.png"
+ },
+ "bluegolem": {
+  "name": "苍蓝雕纹魔像",
+  "head": "s18_head_sentinel.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_sentinel.png"
+ },
+ "titan": {
+  "name": "远古巨龙",
+  "head": "s18_head_elderdragon.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_elderdragon.png"
+ },
+ "souleater": {
+  "name": "凯南",
+  "head": "s18_head_kennen.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_kennen.png"
+ },
+ "emperorhunter": {
+  "name": "艾希",
+  "head": "s18_head_ashe.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_ashe.png"
+ },
+ "shimmer": {
+  "name": "拉克丝",
+  "head": "s18_head_lux_blackthorn.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_lux_blackthorn.png"
+ },
+ "nightowl": {
+  "name": "茂凯",
+  "head": "s18_head_maokai.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_maokai.png"
+ },
+ "warspirit": {
+  "name": "德莱文",
+  "head": "s18_head_draven.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_draven.png"
+ },
+ "holyguard": {
+  "name": "塔里克",
+  "head": "s18_head_taric.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_taric.png"
+ },
+ "ivern": {
+  "name": "艾翁",
+  "head": "s18_head_ivern.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_ivern.png"
+ },
+ "larune": {
+  "name": "拉露恩",
+  "head": "s18_head_alune.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_alune.png"
+ },
+ "gnar": {
+  "name": "纳尔",
+  "head": "s18_head_gnar.png",
+  "url": "https://game.gtimg.cn/images/lol/act/jkzlk/mode18s19/hero/s18_head_gnar.png"
+ }
+}

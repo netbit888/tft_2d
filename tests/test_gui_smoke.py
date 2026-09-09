@@ -98,11 +98,11 @@ def test_champion_picker_five_cost_pages():
     from render.champ_view import champ_entries, champ_geometry
 
     app = _make_app()
-    # F3 打开：默认停在 1 费页（11 个棋子）
+    # F3 打开：默认停在 1 费页（14 个棋子，S18 一费池）
     app.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_F3))
     assert app.picker_open and app.picker_cost == 1
-    assert len(champ_entries(1)) == 11
-    assert len(champ_geometry(1)["cells"]) == 11
+    assert len(champ_entries(1)) == 14
+    assert len(champ_geometry(1)["cells"]) == 14
 
     # 点顶部「3费」tab 切页
     tab2 = champ_geometry(1)["tabs"][2]
@@ -111,7 +111,7 @@ def test_champion_picker_five_cost_pages():
     )
     assert app.picker_cost == 3
     entries3 = champ_entries(3)
-    assert len(entries3) == 10
+    assert len(entries3) == 14
 
     # 点 3 费页第一格：免费获得该棋子进备战席
     before = len(app.game.you.bench)

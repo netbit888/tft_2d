@@ -21,3 +21,4 @@ Thumbs.db
 
 # 本地临时目录（对比产物 / 一次性脚本）
 _tmp/
+.codebuddy/
