@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import pygame
 
+from core.combat import effective_attack_speed
 from core.items import (
     combine_key,
     is_special_item,
@@ -52,11 +53,11 @@ _EFFECT_TEXT = {
     "lifesteal": "特效：普攻吸血（回复伤害的 25%）",
     "magic_resist": "特效：受到的魔法伤害降低",
     "aoe_cleave": "特效：普攻对目标周围敌人造成溅射伤害",
-    "on_cast_buff": "特效：施放技能后获得攻击强化",
-    "ramping_as": "特效：每次攻击逐渐提高攻速",
+    "on_cast_buff": "特效：施放技能后普攻强化（+20% 基础攻击）",
+    "ramping_as": "特效：每次命中叠基础攻速 +6%，多把更快，无叠层上限（全局攻速上限 5/秒）",
     "thorns": "特效：受到攻击时反弹部分伤害",
     "multi_shot": "特效：普攻分裂攻击额外目标",
-    "ap_amp": "特效：法强按比例提高",
+    "ap_amp": "特效：施法时基础法强提高（不吃羁绊/装备/大天使加成的法强）",
     "grievous_wounds": "特效：伤害目标并降低其受到的治疗",
     "mana_ap": "特效：施放技能后法强提升",
     "revive": "特效：首次阵亡后复活并恢复部分生命",
@@ -216,6 +217,77 @@ def unit_records(player, piece) -> list:
     if piece.equip:
         names = "、".join(item_name(it.item_id) for it in piece.equip)
         records.append((f"装备：{names}", theme.FS_TINY, theme.HP_GREEN))
+    return records
+
+
+def battle_unit_records(u, side_label: str = "") -> list:
+    """战斗中点选单位的实时详情：数值随战斗进度刷新（暂停后可以逐帧细看）。
+
+    战斗单位自身已含星级/羁绊/装备折算后的属性；当前攻速按羊刀叠层实时
+    结算（与 combat 出手节奏同一函数，封顶全局上限 AS_CAP）。
+    """
+    tpl = load_units()[u.tid]
+    star = u.star
+    title = f"{tpl.name}{' ★' * star if star > 1 else ''}"
+    if not u.alive:
+        title += "（已阵亡）"
+    records = [
+        (title, theme.FS_NORMAL, _title_color(tpl.cost, star)),
+    ]
+    meta = f"{tpl.cost} 费 · {_trait_names(tpl.traits)}"
+    if side_label:
+        meta += f" · {side_label}"
+    records.append((meta, theme.FS_TINY, theme.TEXT_DIM))
+
+    records.append(
+        (
+            f"生命 {u.hp:.0f} / {u.max_hp:.0f}    法力 {u.mana:.0f} / {u.max_mana:.0f}",
+            theme.FS_SMALL,
+            theme.TEXT,
+        )
+    )
+    records.append(
+        (
+            f"攻击 {u.ad:.0f}    攻速 {effective_attack_speed(u):.2f}/秒    法强 {u.ap:.0f}",
+            theme.FS_SMALL,
+            theme.TEXT,
+        )
+    )
+    if u.as_stack > 0.0:
+        records.append(
+            (
+                f"羊刀叠层：基础攻速提高 +{u.as_stack * 100:.0f}%",
+                theme.FS_TINY,
+                theme.GOLD,
+            )
+        )
+    records.append(
+        (
+            f"护甲 {u.armor:.0f}    魔抗 {u.magic_resist:.0f}    射程 {tpl.attack_range} 格",
+            theme.FS_TINY,
+            theme.TEXT_DIM,
+        )
+    )
+    records.append(
+        (
+            f"暴击 {u.crit_chance * 100:.0f}%    移速 {u.move_speed:.2f}",
+            theme.FS_TINY,
+            theme.TEXT_DIM,
+        )
+    )
+    records += _ability_records(u.ability, u.ap, u.max_mana)
+
+    if u.equip_ids:
+        names = "、".join(item_name(iid) for iid in u.equip_ids)
+        records.append((f"装备：{names}", theme.FS_TINY, theme.HP_GREEN))
+    # 装备特效说明（同件/同类只列一次）
+    seen: set[str] = set()
+    for iid in u.equip_ids:
+        eff = item_effect(iid)
+        if eff == "none" or eff in seen:
+            continue
+        seen.add(eff)
+        records.append((_EFFECT_TEXT.get(eff, f"特效：{eff}"), theme.FS_TINY, theme.GOLD))
     return records
 
 

@@ -88,6 +88,7 @@ def build_team(placements: list[dict], team: str) -> list[Unit]:
                 mana=tpl.starting_mana,
                 ability=tpl.ability,
                 effects=effects,
+                equip_ids=tuple(it.item_id for it in equip),
                 x=float(col),
                 y=float(row),
             )
@@ -112,6 +113,11 @@ def build_team(placements: list[dict], team: str) -> list[Unit]:
         u.attack_speed = s["attack_speed"]
         u.crit_chance = s["crit_chance"]
         u.damage_amp = s["damage_amp"]
+        # 星级白板基础值（不含羁绊/装备）：供羊刀/三相/帽子等“特效吃基础”的装备引用
+        u.base_max_hp = s["base_max_hp"]
+        u.base_ad = s["base_ad"]
+        u.base_ap = s["base_ap"]
+        u.base_attack_speed = s["base_attack_speed"]
         u.max_mana = max(0.0, tpl.max_mana - item_mods.get("mana_flat", 0))
         u.mana = min(u.mana, u.max_mana)
         # 装备特效统一由 combat 层消费：吸血/法吸在普攻/技能入口各自结算

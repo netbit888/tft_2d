@@ -29,6 +29,7 @@ from core.game import Game  # noqa: E402
 from core.items import DROP_CHANCE, FIRST_DROP_ROUND, MAX_ITEMS_PER_PIECE  # noqa: E402
 from core.loader import load_traits, load_units  # noqa: E402
 from core.models import (  # noqa: E402
+    AS_STAR_MULTIPLIER,
     CRIT_MULTIPLIER,
     MANA_ON_TAKE_HIT,
     MANA_PER_ATTACK,
@@ -157,8 +158,9 @@ def section_units(traits_data: dict) -> str:
         total += len(group)
 
     note = (
-        "\n> 上表为 1 星、无装备、无羁绊的裸值。属性中生命/攻击会随星级成长"
-        f"（×{STAR_MULTIPLIER}），攻速/护甲/魔抗不随星级成长。"
+        "\n> 上表为 1 星、无装备、无羁绊的裸值。生命/攻击随星级成长"
+        f"（×{STAR_MULTIPLIER}），攻速按星级档位轻成长"
+        f"（×{AS_STAR_MULTIPLIER}），护甲/魔抗不随星级成长。"
         "蓝量 = 满蓝所需值，满蓝自动放技能；技能基础值即无法强时的威力。\n"
     )
     return f"\n## 一、棋子\n\n全场棋子 {total} 个。\n" + "\n".join(out) + note
@@ -273,7 +275,8 @@ def appendix_code_constants() -> str:
     ]
     headers = ["常量（文件:行号附近）", "当前值", "含义"]
     rows = [
-        ["models.py: STAR_MULTIPLIER", str(STAR_MULTIPLIER), "星级属性倍率：1/2/3 星"],
+        ["models.py: STAR_MULTIPLIER", str(STAR_MULTIPLIER), "生命/攻击的星级倍率：1/2/3 星"],
+        ["models.py: AS_STAR_MULTIPLIER", str(AS_STAR_MULTIPLIER), "攻速星级档位：1/2/3 星"],
         ["models.py: CRIT_MULTIPLIER", _num(CRIT_MULTIPLIER), "暴击伤害倍率"],
         ["models.py: MANA_PER_ATTACK", _num(MANA_PER_ATTACK), "每次普攻回蓝"],
         ["models.py: MANA_ON_TAKE_HIT", _num(MANA_ON_TAKE_HIT), "每次被命中回蓝"],
@@ -307,11 +310,11 @@ def appendix_code_constants() -> str:
         ("BURN_DUR / BURN_AD_PCT", "3.0 / 0.15", "日炎：燃烧 3 秒，秒伤=攻击×15%"),
         ("REGEN_PCT", 0.02, "狂徒：每秒回最大生命 2%"),
         ("REVIVE_HP_PCT", 0.50, "守护天使：复活回 50% 血"),
-        ("RAMP_STEP / RAMP_CAP", "0.08 / 0.64", "羊刀：每次 +8% 攻速，上限 64%"),
-        ("ON_CAST_AD / ON_CAST_DUR", "0.20 / 6.0", "三相：施法后 6 秒普攻 +20%"),
+        ("RAMP_STEP", "0.06", "羊刀：每次命中叠 +6% 攻速（加在基础攻速上，无叠层上限，实际攻速由 AS_CAP 封顶）"),
+        ("ON_CAST_AD / ON_CAST_DUR", "0.20 / 6.0", "三相：施法后 6 秒普攻 +20%（吃佩戴者基础攻击）"),
         ("MANA_AP_STEP", 15.0, "大天使：每次施法永久 +15 法强"),
         ("GIANT_SLAYER_RATIO / GIANT_SLAYER_PCT", "1.5 / 0.25", "巨人杀手：目标生命≥自身 1.5 倍时增伤 25%"),
-        ("AP_AMP_PCT", 0.35, "帽子：施法时法强 +35%"),
+        ("AP_AMP_PCT", 0.35, "帽子：施法时仅基础法强 +35%（不吃羁绊/装备/大天使的法强）"),
         ("SLOW_AURA_RANGE / SLOW_AURA_REDUCE", "2 / 0.25", "冰心：半径 2 格敌人攻速 -25%"),
     ]
     eff_rows = []

@@ -204,7 +204,11 @@ class App(AppDrawMixin, AppStateMixin):
         if combat is None:
             self.finish_battle(None)
             return
-        self.battle = BattleView(combat, on_finish=self.finish_battle)
+        self.battle = BattleView(
+            combat,
+            on_finish=self.finish_battle,
+            names={"blue": g.you.name, "red": g.players[g.current_opponent].name},
+        )
         self.phase = self.PHASE_BATTLE
 
     def finish_battle(self, combat) -> None:

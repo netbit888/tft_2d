@@ -19,7 +19,9 @@ from .events import (
     EV_MOVE,
     Event,
 )
+from .items import item_effect
 from .models import (
+    AS_CAP,
     CRIT_MULTIPLIER,
     MANA_ON_TAKE_HIT,
     MANA_PER_ATTACK,
@@ -49,16 +51,27 @@ BURN_DUR = 3.0               # burn：目标燃烧持续秒数
 BURN_AD_PCT = 0.15           # 燃烧秒伤 = 佩戴者攻击力 * 15%
 REGEN_PCT = 0.02             # regen：每秒回复最大生命 2%
 REVIVE_HP_PCT = 0.50         # revive：复活时回复 50% 最大生命
-RAMP_STEP = 0.08             # ramping_as：羊刀每次命中叠 +8% 攻速
-RAMP_CAP = 0.64              # 羊刀攻速叠加上限 +64%
-ON_CAST_AD = 0.20            # on_cast_buff：三相施法后强化期内普攻 +20%
+RAMP_STEP = 0.06             # ramping_as：羊刀每把每次命中叠 +6% 攻速（相对基础攻速的加性加成）
+# 叠层与装备/羁绊攻速%在“基础攻速”上相加，不与它们互相放大；无叠层上限，
+# 实际攻速由下方 effective_attack_speed 统一按 AS_CAP（全局 5 次/秒）封顶
+ON_CAST_AD = 0.20            # on_cast_buff：三相施法后强化期内普攻 +20%（吃佩戴者基础攻击）
 ON_CAST_DUR = 6.0            # 三相强化持续秒数
 MANA_AP_STEP = 15.0          # mana_ap：大天使每次施法永久 +15 法强
 GIANT_SLAYER_RATIO = 1.5     # giant_slayer：目标最大生命 ≥ 自身 1.5 倍触发
 GIANT_SLAYER_PCT = 0.25      # 对高生命目标额外伤害 +25%
-AP_AMP_PCT = 0.35            # ap_amp：灭世者的死亡之帽，施法时法强 +35%
+AP_AMP_PCT = 0.35            # ap_amp：灭世者的死亡之帽，施法时仅基础法强 +35%（不吃其它加成）
 SLOW_AURA_RANGE = 2          # slow_aura：冰心减速光环半径（六边形格）
 SLOW_AURA_REDUCE = 0.25      # 光环内敌人攻速 -25%
+
+
+def effective_attack_speed(u: Unit) -> float:
+    """单位当前实际攻速（次/秒），封顶到全局上限 AS_CAP。
+
+    羊刀叠层是与攻速装备/羁绊%在同一“基础攻速”上的加性加成：
+    effective = 面板攻速 + 基础攻速 × 叠层。渲染层展示“当前攻速”也必须调用它，
+    保证显示值与出手节奏一致。
+    """
+    return min(u.attack_speed + u.base_attack_speed * u.as_stack, AS_CAP)
 
 
 class Combat:
@@ -126,9 +139,9 @@ class Combat:
                     # 目标正滑向预定格：站在射程内等它落格，避免“打半路”的错位
                     continue
                 u.attack_timer += DT
-                # 羊刀叠攻速：interval 按累积攻速计算
-                interval = 1.0 / max(u.attack_speed * (1.0 + u.as_stack), 0.05)
-                if self._slowed_by_aura(u):  # 冰心减速光环
+                # interval 按"当前实际攻速"计算（含羊刀叠层，封顶全局上限 AS_CAP）
+                interval = 1.0 / max(effective_attack_speed(u), 0.05)
+                if self._slowed_by_aura(u):  # 冰心减速光环：先封顶、后乘性削弱
                     interval /= 1.0 - SLOW_AURA_REDUCE
                 if u.attack_timer >= interval:
                     u.attack_timer -= interval
@@ -289,8 +302,8 @@ class Combat:
         )
 
         raw = u.ad
-        if u.three_t > 0:  # 三相之力：施法后普攻强化
-            raw *= 1.0 + ON_CAST_AD
+        if u.three_t > 0:  # 三相之力：施法后普攻强化（+20% 加在基础攻击上，不吃装备/羁绊的加成）
+            raw += u.base_ad * ON_CAST_AD
         crit = self.rng.random() < u.crit_chance
         if crit:
             # 无尽之刃：暴击伤害提高（叠加到倍率上）
@@ -319,9 +332,12 @@ class Combat:
             if "aoe_cleave" in u.effects:
                 for nb in self._cleave_targets(target):
                     self._deal_damage(u, nb, raw * CLEAVE_PCT, "physical")
-            # 羊刀：每次命中叠加攻速
+            # 羊刀：每把每次命中都叠攻速，多把叠加更快；无叠层上限（由 AS_CAP 兜底）
             if "ramping_as" in u.effects:
-                u.as_stack = min(RAMP_CAP, u.as_stack + RAMP_STEP)
+                blades = sum(
+                    1 for iid in u.equip_ids if item_effect(iid) == "ramping_as"
+                )
+                u.as_stack += RAMP_STEP * max(1, blades)
 
         # 目标已被这次普攻打掉时保留法力，下一 tick 换目标再放技能
         if u.alive and u.mana >= u.max_mana and target.alive:
@@ -331,9 +347,12 @@ class Combat:
         ab = u.ability
         u.mana = 0.0
         power = ability_power(u)
-        # 灭世者的死亡之帽：法强按比例提高（作用于本次技能威力，含大天使叠层）
+        # 灭世者的死亡之帽：施法时仅“基础法强”（棋子模板自带）按比例提高，
+        # 其它来源（羁绊/装备/大天使叠层）不参与放大；基础法强为 0 时帽子无额外效果。
         if "ap_amp" in u.effects:
-            power *= 1.0 + AP_AMP_PCT
+            base = u.base_ap
+            extra = max(0.0, u.ap - base)
+            power = ab.value + (base * (1.0 + AP_AMP_PCT) + extra) * ab.ratio
 
         # 珠光护手：技能可暴击（仅伤害类技能；全场一次掷骰决定本次技能是否暴击）
         crit = False

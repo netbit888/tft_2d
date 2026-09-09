@@ -20,7 +20,8 @@ from core.events import EV_ATTACK, EV_CAST, EV_DAMAGE, EV_DEATH, EV_HEAL
 
 from . import theme
 from .assets import font, text
-from .board_view import draw_grid, draw_piece, hex_point, visual_from_unit
+from .board_view import cell_at, draw_grid, draw_piece, hex_point, visual_from_unit
+from .info import battle_unit_records, draw_tip
 from .widgets import Button, panel
 
 # ---------- 坐标 ----------
@@ -94,9 +95,14 @@ class BattleView:
     FLASH_TIME = 0.16  # 受击闪白时长
     BANNER_TIME = 1.1  # 技能横幅停留时长
 
-    def __init__(self, combat, on_finish) -> None:
+    def __init__(self, combat, on_finish, names: dict | None = None) -> None:
         self.combat = combat
         self.on_finish = on_finish
+        # 双方玩家名（{"blue": 名字, "red": 名字}），展示在战斗详情首行
+        self.names = names or {}
+        # 点选查看详情的单位（左键单击棋子打开/切换/关闭）
+        self.detail_unit = None
+        self.detail_anchor = None  # 打开时点击位置的屏幕坐标，详情面板固定在这里
 
         self.acc = 0.0
         self.speed = 1
@@ -141,6 +147,16 @@ class BattleView:
                 self.btn_pause.label = "暂停"
         if self.btn_skip.handle(event):
             self.skip()
+
+        # 棋盘交互：左键点击棋子开/切详情，点空白处关闭（暂停后可以细看数值）
+        if (
+            not self.done
+            and event.type == pygame.MOUSEBUTTONDOWN
+            and event.button == 1
+        ):
+            u = self._hit_unit(event.pos)
+            self.detail_unit = None if u is None or u is self.detail_unit else u
+            self.detail_anchor = event.pos
 
     def skip(self) -> None:
         """直接算完战斗，不看动画。"""
@@ -187,6 +203,27 @@ class BattleView:
         best, best_d = None, 1e9
         for u in self.combat.units:
             d = (u.x - tx) ** 2 + (u.y - ty) ** 2
+            if d < best_d:
+                best, best_d = u, d
+        return best
+
+    def _hit_unit(self, pos):
+        """屏幕坐标 -> 被点中的存活战斗单位；没有则返回 None。
+
+        先按所在六边形格找（格子化战斗每格至多一个存活单位），
+        滑行途中的单位没踩在格心，再按屏幕距离兜底（限制一个格子内）。
+        """
+        cell = cell_at(pos)
+        if cell is not None:
+            for u in self.combat.units:
+                if u.alive and u.cell == cell:
+                    return u
+        best, best_d = None, (theme.CELL * 0.85) ** 2
+        for u in self.combat.units:
+            if not u.alive:
+                continue
+            px, py = board_pos(u.x, u.y)
+            d = (px - pos[0]) ** 2 + (py - pos[1]) ** 2
             if d < best_d:
                 best, best_d = u, d
         return best
@@ -291,6 +328,17 @@ class BattleView:
         self.draw_fx(surface)
         self.draw_banner(surface)
         self.draw_controls(surface)
+        if self.detail_unit is not None and not self.done:
+            self._draw_detail(surface)
+
+    def _draw_detail(self, surface: pygame.Surface) -> None:
+        """把点选单位的实时详情面板画在最上层（固定在与单位绑定的锚点旁）。"""
+        u = self.detail_unit
+        if u is None or self.detail_anchor is None:
+            return
+        side = self.names.get(u.team, "己方" if u.team == "blue" else "敌方")
+        accent = theme.TEAM_COLORS.get(u.team, theme.GOLD)
+        draw_tip(surface, battle_unit_records(u, side), self.detail_anchor, accent=accent)
 
     def draw_units(self, surface: pygame.Surface) -> None:
         alpha = min(1.0, self.acc / DT) if not self.combat.finished else 1.0
@@ -322,6 +370,14 @@ class BattleView:
                 continue
 
             draw_piece(surface, rect, visual_from_unit(u), flash=self.flashes.get(u.uid, 0.0) / self.FLASH_TIME)
+            if u is self.detail_unit:
+                pygame.draw.circle(
+                    surface,
+                    theme.GOLD,
+                    rect.center,
+                    rect.width // 2,
+                    width=max(2, int(2 * theme.S)),
+                )
 
     def draw_fx(self, surface: pygame.Surface) -> None:
         width = max(3, int(3 * theme.S))

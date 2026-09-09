@@ -106,6 +106,10 @@ class AppStateMixin:
                 self.message = "已静音（再按 M 恢复）" if muted else "已恢复声音"
             return
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            if self.phase == self.PHASE_BATTLE:  # 战斗中 ESC 只收起战斗详情，不退出
+                if self.battle is not None:
+                    self.battle.detail_unit = None
+                return
             if self.armory_open:  # 先关自选台，再关详情，最后才退出
                 self._toggle_armory()
                 return

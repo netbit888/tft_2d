@@ -6,8 +6,13 @@ from dataclasses import dataclass, field
 
 # 星级倍率：1 星为基准，每升一星属性约翻倍
 STAR_MULTIPLIER: dict[int, float] = {1: 1.0, 2: 1.8, 3: 3.24}
+# 攻速星级档位：攻速随星级轻成长（低攻速单位升星手感不受大影响）
+AS_STAR_MULTIPLIER: dict[int, float] = {1: 1.0, 2: 1.1, 3: 1.25}
 
 CRIT_MULTIPLIER = 1.5
+
+# 全局攻速上限（次/秒）：含装备/羁绊/羊刀叠层在内的实际攻速不得超过它
+AS_CAP = 5.0
 
 MANA_PER_ATTACK = 10.0
 MANA_ON_TAKE_HIT = 6.0
@@ -64,6 +69,12 @@ class Unit:
     armor: float = 0.0
     magic_resist: float = 0.0
     attack_speed: float = 0.0
+    # 星级白板基础值（= 模板 × 星级档位，不含羁绊与装备加成）：
+    # “特效吃基础”的装备（羊刀/三相/帽子）以此为基准，不与装备/羁绊加成互相放大。
+    base_max_hp: float = 0.0
+    base_ad: float = 0.0
+    base_ap: float = 0.0
+    base_attack_speed: float = 0.0
     attack_range: int = 1
     move_speed: float = 0.0
     max_mana: float = 0.0
@@ -73,6 +84,8 @@ class Unit:
     lifesteal: float = 0.0
     ability: AbilityDef = AbilityDef()
     effects: frozenset = frozenset()  # 装备特殊效果集合
+    # 装备清单（item_id 序列，可重复）：供详情展示与"按件数生效"的特效（如羊刀叠加）使用
+    equip_ids: tuple[str, ...] = ()
     max_star: int = 1
 
     x: float = 0.0
@@ -87,7 +100,7 @@ class Unit:
     target_uid: int | None = None
 
     # 装备特效运行期状态（每场战斗由 Combat 读写，构建时保持默认）
-    as_stack: float = 0.0  # 羊刀叠加攻速（乘数累积）
+    as_stack: float = 0.0  # 羊刀叠加攻速（相对基础攻速的加性百分比，不与攻速装备/羁绊互乘）
     three_t: float = 0.0   # 三相之力：施法后普攻强化剩余秒数
     burn_t: float = 0.0    # 燃烧剩余秒数
     burn_dps: float = 0.0  # 燃烧每秒伤害（由施加者写入）
