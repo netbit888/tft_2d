@@ -150,6 +150,20 @@ class Game:
         """结算玩家本人 vs 当前对手的战斗。"""
         return self.settle_pair(0, self.current_opponent, result)
 
+    @staticmethod
+    def _bump_streak(pa, pb, won_a: bool) -> None:
+        """按胜负更新连胜/连败计数：连胜 +1、连败 -1，被终结则直接归到 ±1。"""
+
+        def bump(p) -> None:
+            won = p is pa if won_a else p is pb
+            if won:
+                p.streak = p.streak + 1 if p.streak >= 0 else 1
+            else:
+                p.streak = p.streak - 1 if p.streak <= 0 else -1
+
+        bump(pa)
+        bump(pb)
+
     def settle_pair(self, a: int, b: int, result: CombatResult | None) -> str:
         """结算任意两个玩家（a/b 是索引）的战斗，败者扣血。返回描述。"""
         pa, pb = self.players[a], self.players[b]
@@ -159,19 +173,26 @@ class Game:
             if not pa.board:
                 dmg = self.damage_of(len(pb.board))
                 pa.hp = max(0, pa.hp - dmg)
+                self._bump_streak(pa, pb, won_a=False)
                 return f"{pa.name} 未上场棋子，受到 {dmg} 点伤害"
             dmg = self.damage_of(len(pa.board))
             pb.hp = max(0, pb.hp - dmg)
+            self._bump_streak(pa, pb, won_a=True)
             return f"{pb.name} 未上场棋子，受到 {dmg} 点伤害"
 
         if result.winner == "blue":
             dmg = self.damage_of(result.survivors.get("blue", 0))
             pb.hp = max(0, pb.hp - dmg)
+            self._bump_streak(pa, pb, won_a=True)
             return f"{pa.name} 赢了，{pb.name} 受到 {dmg} 点伤害"
         if result.winner == "red":
             dmg = self.damage_of(result.survivors.get("red", 0))
             pa.hp = max(0, pa.hp - dmg)
+            self._bump_streak(pa, pb, won_a=False)
             return f"{pb.name} 赢了，{pa.name} 受到 {dmg} 点伤害"
+        # 平局：连胜/连败被打断，归 0
+        pa.streak = 0
+        pb.streak = 0
         return "本回合平局，双方都不掉血"
 
     def drop_items_for_round(self) -> list[tuple[int, str]]:

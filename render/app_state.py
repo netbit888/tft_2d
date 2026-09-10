@@ -28,8 +28,18 @@ from . import theme
 from .armory_view import armory_geometry
 from .board_view import cell_at, cell_rect
 from .champ_view import champ_entries, champ_geometry
+from .hud_view import gold_ball_hit, xp_ball_hit
 from .item_view import item_slot_at
-from .shop_view import bench_slot_at, bench_slot_rect, shop_card_at, shop_card_rect
+from .shop_view import (
+    bench_slot_at,
+    bench_slot_rect,
+    shop_card_at,
+    shop_close_rect,
+    shop_lock_rect,
+    shop_panel_rect,
+    shop_refresh_rect,
+)
+from .side_view import side_tab_at
 
 
 class AppStateMixin:
@@ -125,6 +135,9 @@ class AppStateMixin:
             if self.picker_open:  # 棋子自选栏同理，优先级高于详情
                 self._toggle_picker()
                 return
+            if self.shop_open:  # 商店浮层次之
+                self._toggle_shop()
+                return
             if self.detail is not None:
                 self.detail = None
                 return
@@ -138,7 +151,7 @@ class AppStateMixin:
             return
 
         if self.phase == self.PHASE_DEPLOY:
-            # 松开鼠标：停止长按连升（自选台打开时同样要停）
+            # 松开鼠标：停止长按连升（自选台/浮层打开时同样要停）
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 self.xp_held = False
             if self.armory_open:
@@ -147,21 +160,19 @@ class AppStateMixin:
             if self.picker_open:
                 self._picker_event(event)
                 return
+            if self.shop_open:
+                self._shop_event(event)
+                return
 
-            if self.btn_refresh.handle(event):
-                before = self.game.you.gold
-                self.message = refresh_shop(self.game.you, self.game.shop_you)
-                self._push_gold_delta(before)
-                self.audio.sfx.play("refresh" if self.game.you.gold < before else "error")
-            elif self.btn_xp.handle(event):
-                self._do_upgrade()  # 单击立即升一次
-                self.xp_held = True  # 按住不放则由 _update_held_xp 连升
-            elif self.btn_lock.handle(event):
-                you = self.game.you
-                you.locked = not you.locked
-                self.message = "商店已锁定（下回合不刷新）" if you.locked else "商店已解锁"
-                self.audio.sfx.play("lock")
-            elif self.btn_fight.handle(event):
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if xp_ball_hit(event.pos):  # 经验球：立即升一次，按住则由 _update_held_xp 连升
+                    self._do_upgrade()
+                    self.xp_held = True
+                    return
+                if gold_ball_hit(event.pos):  # 金币球：开关商店浮层
+                    self._toggle_shop()
+                    return
+            if self.btn_fight.handle(event):
                 self.start_battle()
             else:
                 self.handle_deploy(event)
@@ -180,6 +191,11 @@ class AppStateMixin:
             return
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
+                # 左侧页签（羁绊 / 装备）：切换内容区显示，优先级最高
+                tab = side_tab_at(event.pos)
+                if tab is not None:
+                    self.set_side_tab(tab)
+                    return
                 # 观察视角切换：右侧血条（部署期看自己时对手栏隐藏，故不可点）/ 战况面板行
                 if self._opponent_visible() and self._hp2_zone().collidepoint(event.pos):
                     self._toggle_view()
@@ -188,14 +204,13 @@ class AppStateMixin:
                     if row_rect.collidepoint(event.pos):
                         self._set_view(pidx)
                         return
-                idx = shop_card_at(event.pos)
-                if idx is not None:
-                    self.buy_card(idx)
-                    return
-                iidx = item_slot_at(event.pos, self.item_scroll, len(self.game.you.item_bench))
-                if iidx is not None and iidx < len(self.game.you.item_bench):
-                    self.start_item_drag(iidx)
-                    return
+                # 商店卡只在浮层里可买（见 _shop_event），此处不再响应
+                # 装备栏只在「装备」页可拖起，羁绊页时左侧区域不响应装备操作
+                if self.side_tab == "items":
+                    iidx = item_slot_at(event.pos, self.item_scroll, len(self.game.you.item_bench))
+                    if iidx is not None and iidx < len(self.game.you.item_bench):
+                        self.start_item_drag(iidx)
+                        return
                 # 棋子身上的装备徽章：直接拖起（可换装 / 拖回装备栏卸下 / 参与合成）
                 src = self._piece_equip_drag_source(event.pos)
                 if src is not None:
@@ -233,12 +248,27 @@ class AppStateMixin:
                 else:
                     self.drop(event.pos)
 
+    def set_side_tab(self, key: str) -> None:
+        """切换左侧面板页签（traits=羁绊 / items=装备）。
+
+        切换时收起进行中的拖拽与单击详情，避免把上一位页的坐标误判到新页面上。
+        """
+        from .item_view import clamp_scroll
+
+        if key not in ("traits", "items") or key == self.side_tab:
+            return
+        self.side_tab = key
+        self.drag = None
+        self._press = None
+        self.hover_item = None
+        self.item_scroll = clamp_scroll(self.item_scroll, len(self.game.you.item_bench))
+
     def _scroll_item_bench(self, event) -> None:
         """鼠标悬停在装备栏面板上时用滚轮翻页（背包无上限，每页 3x4 格）。"""
         from .item_view import clamp_scroll
 
         you = self.game.you
-        if self.armory_open or not you.item_bench:
+        if self.side_tab != "items" or self.armory_open or not you.item_bench:
             return
         panel = pygame.Rect(
             theme.ITEM_BENCH_X,
@@ -263,6 +293,7 @@ class AppStateMixin:
         self.armory_open = not self.armory_open
         if self.armory_open:
             self.picker_open = False
+            self.shop_open = False
             self.drag = None
             self._press = None
             self.detail = None
@@ -278,10 +309,54 @@ class AppStateMixin:
         self.picker_open = not self.picker_open
         if self.picker_open:
             self.armory_open = False
+            self.shop_open = False
             self.drag = None
             self._press = None
             self.detail = None
             self.xp_held = False  # 中止可能的"长按买经验"
+
+    def _toggle_shop(self) -> None:
+        """金币球 / ESC / 关闭 ✕ / 点面板外：开关商店浮层。
+
+        打开时中断拖拽与详情，并与自选台、自选栏互斥；浮层期间独占鼠标。
+        """
+        if self.phase != self.PHASE_DEPLOY:
+            return
+        self.shop_open = not self.shop_open
+        if self.shop_open:
+            self.armory_open = False
+            self.picker_open = False
+            self.drag = None
+            self._press = None
+            self.detail = None
+            self.xp_held = False  # 中止可能的"长按买经验"
+
+    def _shop_event(self, event) -> None:
+        """商店浮层打开时独占点击：买卡 / 刷新 / 锁定，点 ✕ 或面板外关闭。"""
+        if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
+            return
+        pos = event.pos
+        if shop_close_rect().collidepoint(pos):
+            self._toggle_shop()
+            return
+        if not shop_panel_rect().collidepoint(pos):
+            self._toggle_shop()
+            return
+        if shop_refresh_rect().collidepoint(pos):
+            before = self.game.you.gold
+            self.message = refresh_shop(self.game.you, self.game.shop_you)
+            self._push_gold_delta(before)
+            self.audio.sfx.play("refresh" if self.game.you.gold < before else "error")
+            return
+        if shop_lock_rect().collidepoint(pos):
+            you = self.game.you
+            you.locked = not you.locked
+            self.message = "商店已锁定（下回合不刷新）" if you.locked else "商店已解锁"
+            self.audio.sfx.play("lock")
+            return
+        idx = shop_card_at(pos)
+        if idx is not None:
+            self.buy_card(idx)
 
     def _armory_event(self, event) -> None:
         """自选台打开时独占点击：切页 / 点格获得装备，点 ✕ / 面板外关闭。"""
@@ -530,7 +605,12 @@ class AppStateMixin:
         from .item_view import clamp_scroll
 
         self.item_scroll = clamp_scroll(self.item_scroll, len(you.item_bench))
-        dest = item_slot_at(pos, self.item_scroll, len(you.item_bench))
+        # 只有「装备」页可见时才把“落在左侧内容区”判为放回/卸下，羁绊页不误触
+        dest = (
+            item_slot_at(pos, self.item_scroll, len(you.item_bench))
+            if self.side_tab == "items"
+            else None
+        )
         if dest is not None:
             if dest < len(you.item_bench):
                 other = you.item_bench[dest]
@@ -624,6 +704,15 @@ class AppStateMixin:
             return bench_slot_rect(self.game.you.bench.index(p)).center
         return None
 
+    def _sell_zone(self) -> pygame.Rect:
+        """卖出区：备战席下方那条空白（原商店位置，商店搬进浮层后留白）。"""
+        return pygame.Rect(
+            theme.SELL_ZONE_X,
+            theme.SELL_ZONE_Y,
+            theme.SELL_ZONE_W,
+            theme.SELL_ZONE_H,
+        )
+
     def drop(self, pos) -> None:
         drag, self.drag = self.drag, None
         piece = drag["piece"]
@@ -639,7 +728,7 @@ class AppStateMixin:
             self._feedback(move_piece(you, piece, ("bench", idx), "blue"))
             return
 
-        if pos[1] >= theme.SHOP_Y - 10 * theme.S:  # 拖到商店区域 = 卖出
+        if self._sell_zone().collidepoint(pos):  # 拖到最底部空条 = 卖出
             before = you.gold
             self.message = sell_piece(you, piece)
             self.item_scroll = 0  # 回栏装备插在栏首，滚回顶部立即可见
@@ -679,7 +768,6 @@ class AppStateMixin:
         tid = item.tid if item is not None else None
 
         before = you.gold
-        bench_before = len(you.bench)
         stars_before = self._star_map(you)
 
         self.message = buy(you, shop, idx)
@@ -691,18 +779,6 @@ class AppStateMixin:
             return  # 没买成（金币不足 / 已售出 / 备战席满）
 
         self.audio.sfx.play("buy")
-        # 卡片飞入备战席
-        dst = bench_slot_rect(min(bench_before, theme.BENCH_SLOTS - 1)).center
-        self.fx.append(
-            {
-                "kind": "fly",
-                "tid": tid,
-                "a": shop_card_rect(idx).center,
-                "b": dst,
-                "life": 0.42,
-                "total": 0.42,
-            }
-        )
 
         # 升星闪光
         for tid2, star in self._star_map(you).items():
@@ -724,8 +800,8 @@ class AppStateMixin:
         self.floaters.append(
             {
                 "text": f"{sign}{delta} 金",
-                "x": theme.GOLD_X + 40 * theme.S,
-                "y": 46 * theme.S,
+                "x": theme.GOLD_BALL_X,
+                "y": theme.GOLD_BALL_Y - theme.BALL_R - 26 * theme.S,
                 "life": 1.0,
                 "total": 1.0,
                 "color": color,

@@ -11,12 +11,14 @@ import math
 import pygame
 
 from core.loader import load_units
+from core.player import odds_for_level
+from core.shop import REFRESH_COST
 
 from . import theme
-from .assets import text
+from .assets import text, text_size
 from .board_view import PieceVisual, draw_piece, shop_card_art, trait_tag, visual_from_tid
 from .item_art import draw_item_badge
-from .widgets import panel
+from .widgets import dim_overlay, panel
 
 # ---------- 命中检测 ----------
 
@@ -51,6 +53,37 @@ def shop_card_at(pos) -> int | None:
         if shop_card_rect(i).collidepoint(pos):
             return i
     return None
+
+
+# ---------- 浮层几何（绘制与命中检测共用同一份，避免两处漂移） ----------
+
+
+def shop_panel_rect() -> pygame.Rect:
+    """浮层面板外框：点它之外即关闭商店。"""
+    return pygame.Rect(
+        theme.SHOP_PANEL_X, theme.SHOP_PANEL_Y, theme.SHOP_PANEL_W, theme.SHOP_PANEL_H
+    )
+
+
+def shop_refresh_rect() -> pygame.Rect:
+    return pygame.Rect(
+        theme.SHOP_REFRESH_X,
+        theme.SHOP_REFRESH_Y,
+        theme.SHOP_REFRESH_W,
+        theme.SHOP_REFRESH_H,
+    )
+
+
+def shop_lock_rect() -> pygame.Rect:
+    return pygame.Rect(
+        theme.SHOP_LOCK_X, theme.SHOP_LOCK_Y, theme.SHOP_LOCK_W, theme.SHOP_LOCK_H
+    )
+
+
+def shop_close_rect() -> pygame.Rect:
+    """右上关闭 ✕（正方形，边长取 SHOP_CLOSE_W）。"""
+    size = theme.SHOP_CLOSE_W
+    return pygame.Rect(theme.SHOP_CLOSE_X, theme.SHOP_CLOSE_Y, size, size)
 
 
 # ---------- 绘制 ----------
@@ -143,3 +176,88 @@ def draw_shop(
         badge.topright = (rect.right - 10 * s, rect.y + int(rect.height * 0.20))
         panel(surface, badge, rar["edge"], radius=max(2, 4 * s), border=(12, 13, 18), width=1)
         text(surface, str(item.cost), theme.FS_SMALL, (16, 18, 24), badge.center, center=True)
+
+
+def _popup_button(surface: pygame.Surface, rect: pygame.Rect, label: str, color) -> None:
+    """浮层按钮：hover 提亮 + 白描边，与 widgets.Button 观感一致但不持有状态。"""
+    hover = rect.collidepoint(pygame.mouse.get_pos())
+    base = tuple(min(255, c + 26) for c in color) if hover else color
+    panel(surface, rect, base, radius=8)
+    pygame.draw.rect(surface, (255, 255, 255, 40), rect, width=1, border_radius=8)
+    text(surface, label, theme.FS_SMALL, (255, 255, 255), rect.center, center=True)
+
+
+def draw_shop_odds(surface: pygame.Surface, level: int) -> None:
+    """一行刷新概率：费用方块（稀有度色）+ 百分比，等级越高高费卡概率越大。"""
+    s = theme.S
+    odds = odds_for_level(level)
+    x = theme.SHOP_ODDS_X
+    text(
+        surface,
+        "刷新概率",
+        theme.FS_TINY,
+        theme.TEXT_DIM,
+        (x - int(96 * s), theme.SHOP_ODDS_Y + int(3 * s)),
+    )
+    for cost in sorted(odds):
+        pct = odds[cost]
+        box = pygame.Rect(x, theme.SHOP_ODDS_Y, theme.SHOP_ODDS_BOX, theme.SHOP_ODDS_BOX)
+        panel(surface, box, theme.rarity(cost)["edge"], radius=4, border=(12, 13, 18), width=1)
+        text(surface, str(cost), theme.FS_MICRO, (16, 18, 24), box.center, center=True)
+        text(
+            surface,
+            f"{pct}%",
+            theme.FS_TINY,
+            theme.TEXT if pct > 0 else theme.TEXT_DIM,
+            (box.right + int(30 * s), box.centery),
+            center=True,
+        )
+        x += theme.SHOP_ODDS_GAP
+
+
+def draw_shop_popup(
+    surface: pygame.Surface,
+    slots,
+    level: int,
+    hints: list[int] | None = None,
+    locked: bool = False,
+    t: float = 0.0,
+) -> None:
+    """商店浮层：遮罩 + 面板 + 标题 + 卡面 + 概率行 + 刷新/锁定/关闭。
+
+    打开时机与命中检测都在 app_state；这里只按 theme 里的浮层几何绘制。
+    """
+    s = theme.S
+    surface.blit(dim_overlay((theme.WINDOW_W, theme.WINDOW_H), 150), (0, 0))
+
+    rect = shop_panel_rect()
+    panel(surface, rect, theme.PANEL, radius=int(14 * s), border=theme.BORDER, width=2)
+
+    title = "商店"
+    text(surface, title, theme.FS_TITLE, theme.TEXT, (rect.x + int(22 * s), rect.y + int(14 * s)))
+    text(
+        surface,
+        f"{level} 级",
+        theme.FS_SMALL,
+        theme.GOLD,
+        (
+            rect.x + int(22 * s) + text_size(title, theme.FS_TITLE)[0] + int(12 * s),
+            rect.y + int(24 * s),
+        ),
+    )
+
+    draw_shop(surface, slots, hints=hints, t=t)
+    draw_shop_odds(surface, level)
+
+    _popup_button(surface, shop_refresh_rect(), f"刷新 {REFRESH_COST} 金", theme.ACCENT)
+    _popup_button(
+        surface,
+        shop_lock_rect(),
+        "已锁定" if locked else "锁定商店",
+        theme.GOLD if locked else (70, 74, 86),
+    )
+
+    close = shop_close_rect()
+    closing = close.collidepoint(pygame.mouse.get_pos())
+    panel(surface, close, (86, 92, 108) if closing else (52, 56, 68), radius=int(8 * s))
+    text(surface, "✕", theme.FS_SMALL, theme.TEXT, close.center, center=True)

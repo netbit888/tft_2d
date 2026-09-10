@@ -19,12 +19,11 @@ from core.items import (
     item_name,
 )
 from core.loader import load_traits, load_units
-from core.player import MAX_LEVEL, odds_for_level, xp_needed_for_level
 from core.traits import count_traits_from_tids
 
 from . import theme
 from .armory_view import draw_armory
-from .assets import render, text, text_size
+from .assets import render, text
 from .board_view import (
     cell_at,
     cell_rect,
@@ -49,10 +48,12 @@ from .item_view import (
     draw_roster,
     item_slot_at,
 )
-from .shop_view import bench_slot_rect
+from .hud_view import draw_gold_ball, draw_xp_ball
+from .shop_view import bench_slot_rect, draw_shop_popup
+from .trait_art import draw_trait_icon
 from .widgets import bar, dim_overlay, panel, tooltip
 
-HINT = "左键单击棋子查看详情 / 左键拖拽摆位 / 右键卖出 / 拖装备到棋子 / 装备栏拖两件合成 / ESC 退出"
+HINT = "左下经验球买经验 / 右下金币球开商店 / 左侧页签切换 羁绊/装备 / 单击棋子看详情 / 拖拽摆位 / 拖到最底部空条卖出 / 拖装备到棋子 / ESC 退出"
 
 
 class AppDrawMixin:
@@ -66,33 +67,36 @@ class AppDrawMixin:
         """把棋子自选栏（当前费用页）画在信息层之上。"""
         draw_champ_picker(self.screen, self.picker_cost)
 
-    def draw_op_buttons(self) -> None:
-        """左下角：刷新 + 购买经验按钮（金铲铲风格垂直堆叠）。"""
+    def draw_hud(self) -> None:
+        """底部 HUD：左下经验球 + 右下金币球（仅部署期显示）。"""
         if self.phase != self.PHASE_DEPLOY:
             return
-        self.btn_refresh.draw(self.screen, self.time)
-        self.btn_xp.draw(self.screen, self.time)
+        draw_xp_ball(self.screen, self.game.you, self.time)
+        draw_gold_ball(self.screen, self.game.you, self.time, gold=self.gold_shown)
+
+    def draw_shop_popup(self) -> None:
+        """商店浮层：点右下金币球打开，遮罩 + 面板（卡面 / 概率 / 刷新 / 锁定 / 关闭）。"""
+        if self.phase != self.PHASE_DEPLOY or not self.shop_open:
+            return
+        draw_shop_popup(
+            self.screen,
+            self.game.shop_you.slots,
+            self.game.you.level,
+            hints=self._shop_hints(),
+            locked=self.game.you.locked,
+            t=self.time,
+        )
 
     def draw_side_buttons(self) -> None:
-        """右下角：锁定商店 + 开战按钮。"""
+        """右下角：开战按钮（刷新/锁定已随商店移入浮层）。"""
         if self.phase != self.PHASE_DEPLOY:
             return
-        # 锁定按钮状态
-        you = self.game.you
-        if you.locked:
-            self.btn_lock.label = "已锁定"
-            self.btn_lock.color = theme.GOLD
-        else:
-            self.btn_lock.label = "锁定商店"
-            self.btn_lock.color = theme.BORDER
-        self.btn_lock.draw(self.screen, self.time)
         self.btn_fight.draw(self.screen, self.time)
 
-    def draw_item_bench_ui(self) -> None:
-        """装备栏面板；拖基础装备时给可合成的目标格描金框。"""
-        if self.phase != self.PHASE_DEPLOY:
-            return
+    def _draw_item_page(self) -> None:
+        """装备页：装备栏面板铺满左侧内容区。"""
         you = self.game.you
+        self._trait_hits = []  # 切到装备页后羁绊行不再可悬停
         draw_item_bench(
             self.screen, you.item_bench, hover=self.hover_item, scroll=self.item_scroll
         )
@@ -116,85 +120,6 @@ class AppDrawMixin:
             selected=self._view_index(),
             current_opp=opp_marker,
         )
-
-    def draw_topbar(self) -> None:
-        """顶栏三段式：等级+经验（左）、刷新概率（中）、金币+利息（右）。"""
-        panel(self.screen, (0, 0, theme.WINDOW_W, theme.TOP_H), theme.PANEL, radius=0)
-        pygame.draw.line(
-            self.screen, theme.BORDER, (0, theme.TOP_H), (theme.WINDOW_W, theme.TOP_H), 1
-        )
-        g = self.game
-        you = g.you
-
-        # ---- 左：回合 + 等级 + 经验 ----
-        text(self.screen, f"回合 {g.round}", theme.FS_TINY, theme.TEXT_DIM, (theme.ROUND_X, theme.ROUND_Y))
-        text(self.screen, f"{you.level}级", theme.FS_TITLE, theme.TEXT, (theme.LEVEL_X, theme.LEVEL_Y))
-        self.draw_level(you)
-
-        # ---- 中：刷新概率 ----
-        self.draw_odds(you.level)
-
-        # ---- 右：金币 + 利息 ----
-        text(self.screen, "◎", theme.FS_TITLE, theme.GOLD, (theme.GOLD_X, theme.GOLD_Y))
-        gold = int(round(self.gold_shown))
-        img = render(str(gold), theme.FS_TITLE, theme.GOLD)
-        self.screen.blit(img, (theme.GOLD_X + 26 * theme.S, theme.GOLD_Y))
-        interest = self.game.interest_of(gold)
-        interest_color = theme.GOLD if interest > 0 else theme.TEXT_DIM
-        text(
-            self.screen,
-            f"利息 +{interest}",
-            theme.FS_TINY,
-            interest_color,
-            (theme.INTEREST_X, theme.INTEREST_Y),
-        )
-
-    def draw_level(self, you) -> None:
-        """等级旁的经验进度条 + 数字。"""
-        from core.player import xp_needed_for_level
-
-        if you.level >= MAX_LEVEL:
-            text(self.screen, "MAX", theme.FS_TINY, theme.GOLD, (theme.XP_TEXT_X, theme.XP_TEXT_Y))
-            return
-        need = xp_needed_for_level(you.level + 1)
-        xp_rect = pygame.Rect(theme.XP_BAR_X, theme.XP_BAR_Y, theme.XP_BAR_W, theme.XP_BAR_H)
-        bar(
-            self.screen,
-            xp_rect,
-            you.xp / max(1, need),
-            (210, 150, 70),
-            bg=(28, 30, 38),
-            radius=theme.XP_BAR_H // 2,
-        )
-        text(
-            self.screen,
-            f"{you.xp}/{need}",
-            theme.FS_TINY,
-            theme.TEXT_DIM,
-            (theme.XP_TEXT_X, theme.XP_TEXT_Y),
-        )
-
-    def draw_odds(self, level: int) -> None:
-        """顶栏中部：当前等级各费用棋子的刷新概率。"""
-        from core.player import odds_for_level
-
-        odds = odds_for_level(level)
-        x = theme.ODDS_X
-        for cost in sorted(odds):
-            pct = odds[cost]
-            color = theme.rarity(cost)["edge"]
-            box = pygame.Rect(x, theme.ODDS_Y, theme.ODDS_BOX, theme.ODDS_BOX)
-            panel(self.screen, box, color, radius=max(2, 4 * theme.S))
-            text(self.screen, str(cost), theme.FS_MICRO, (255, 255, 255), box.center, center=True)
-            pct_color = theme.TEXT if pct > 0 else theme.TEXT_DIM
-            text(
-                self.screen,
-                f"{pct}%",
-                theme.FS_TINY,
-                pct_color,
-                (x + theme.ODDS_BOX + 5 * theme.S, theme.ODDS_Y + 1 * theme.S),
-            )
-            x += theme.ODDS_GAP
 
     def draw_hp_row(self) -> None:
         """备战席上方一行：你/对手血条 + 上场人口。
@@ -258,87 +183,88 @@ class AppDrawMixin:
             center=True,
         )
 
-    def draw_trait_panel(self) -> None:
-        rect = pygame.Rect(
-            theme.SIDE_PAD,
-            theme.TOP_H + 12 * theme.S,
-            theme.SIDE_W - theme.SIDE_PAD * 2,
-            theme.BOARD_AREA_H - 24 * theme.S,
+    def _side_panel_rect(self) -> pygame.Rect:
+        """左侧内容区矩形（页签栏右侧那一块）。"""
+        return pygame.Rect(
+            theme.SIDE_CONTENT_X,
+            theme.SIDE_PANEL_Y,
+            theme.SIDE_CONTENT_W,
+            theme.SIDE_PANEL_H,
         )
+
+    def draw_side_panel(self) -> None:
+        """左侧面板：窄页签栏（羁绊/装备）+ 内容区，点哪个页签就显示哪个。"""
+        from .side_view import draw_side_tabs
+
+        draw_side_tabs(self.screen, self.side_tab, self.time)
+        if self.side_tab == "items":
+            self._draw_item_page()
+        else:
+            self._draw_trait_page()
+
+    def _draw_trait_page(self) -> None:
+        """羁绊页：当前观察对象的阵容羁绊（六边形图标 + 名称 + 人数/下一档）。"""
+        rect = self._side_panel_rect()
         panel(self.screen, rect, theme.PANEL, radius=10, border=theme.BORDER)
         self._trait_hits = []
 
-        y = rect.y + 12 * theme.S
+        s = theme.S
         # 阵容羁绊：选谁（观察谁）就只显示谁的，不把两人的羁绊并排显示。
         # 默认看自己 -> “你的羁绊”；在战况面板/血条点选了某玩家 -> 只显示该玩家的。
         viewing = self._view_player()
         title = "你的羁绊" if self._view_index() == 0 else f"{viewing.name} 的羁绊"
-        text(self.screen, title, theme.FS_NORMAL, theme.TEXT, (rect.x + 12 * theme.S, y))
-        y += 32 * theme.S
-        y = self._draw_traits(viewing, rect.x + 12 * theme.S, y, rect.width - 24 * theme.S)
-        y += 18 * theme.S
+        text(self.screen, title, theme.FS_SMALL, theme.TEXT, (rect.x + 10 * s, rect.y + 8 * s))
 
-        pool = self.game.pool
-        if pool is not None:
-            text(
-                self.screen,
-                f"卡池剩余 {pool.total_left()} / {pool.total_capacity()}",
-                theme.FS_TINY,
-                theme.TEXT_DIM,
-                (rect.x + 12 * theme.S, rect.bottom - 22 * theme.S),
-            )
+        self._draw_traits(
+            viewing,
+            rect.x + 10 * s,
+            rect.y + 32 * s,
+            rect.width - 20 * s,
+            limit_y=rect.bottom - 26 * s,
+        )
 
-    def _draw_traits(self, player, x: int, y: int, width: int) -> int:
-        """画一栏羁绊：色块 + 名称 + 档位进度，返回结束时的 y。"""
+    def _draw_traits(self, player, x: int, y: int, width: int, limit_y: int | None = None) -> int:
+        """画一栏羁绊：六边形图标 + 名称 + 已激活人数/下一档，返回结束时的 y。"""
         traits_data = load_traits()
         counts = count_traits_from_tids([p.tid for p in player.board], load_units())
         s = theme.S
-        dot = theme.TRAIT_DOT
+        hex_size = theme.TRAIT_HEX
+        line_h = theme.SIDE_LINE_H
 
         if not counts:
             text(self.screen, "（暂无）", theme.FS_TINY, theme.TEXT_DIM, (x, y))
-            return y + theme.SIDE_LINE_H
+            return y + line_h
 
+        right = x + width
         for tid, count in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])):
             info = traits_data.get(tid)
             if info is None:
                 continue
-            color = trait_color(tid)
-            levels = info.get("levels") or [t["count"] for t in info.get("tiers", [])]
+            if limit_y is not None and y + line_h > limit_y:
+                break  # 阵容羁绊太多时截断，避免溢出面板底部
+            levels = [
+                int(n)
+                for n in (info.get("levels") or [t["count"] for t in info.get("tiers", [])])
+            ]
             active = bool(levels) and count >= levels[0]
+            nxt = next((n for n in levels if count < n), None)
 
+            cy = y + line_h // 2
             # 记录整行命中区，供悬停详情 tooltip 使用
-            self._trait_hits.append((pygame.Rect(x, y, width, theme.SIDE_LINE_H), tid, count))
+            self._trait_hits.append((pygame.Rect(x, y, width, line_h), tid, count))
 
-            box = pygame.Rect(x, y + (theme.SIDE_LINE_H - dot) // 2, dot, dot)
-            panel(
-                self.screen,
-                box,
-                color if active else theme.shade(color, 0.4),
-                radius=max(2, dot // 4),
-                border=(12, 13, 18),
-                width=1,
-            )
+            draw_trait_icon(self.screen, (x + hex_size // 2, cy), hex_size, tid, active=active)
 
-            # 名称 + 人数：官方名称长短不一，按测量宽度紧跟排版，避免重叠
             name_color = theme.TEXT if active else theme.TEXT_DIM
-            nx = x + dot + 8 * s
-            text(self.screen, info["name"], theme.FS_SMALL, name_color, (nx, y))
-            cnt_x = nx + text_size(info["name"], theme.FS_SMALL)[0] + 6 * s
-            text(self.screen, str(count), theme.FS_SMALL, name_color, (cnt_x, y))
+            img = render(info["name"], theme.FS_SMALL, name_color)
+            self.screen.blit(img, (x + hex_size + 8 * s, cy - img.get_height() // 2))
 
-            # 档位进度小菱形
-            px = cnt_x + text_size(str(count), theme.FS_SMALL)[0] + 8 * s
-            py = y + theme.SIDE_LINE_H // 2
-            for need in levels:
-                half = max(3, int(5 * s))
-                pts = [(px, py - half), (px + half, py), (px, py + half), (px - half, py)]
-                pygame.draw.polygon(
-                    self.screen, theme.GOLD if count >= need else (52, 56, 68), pts
-                )
-                pygame.draw.polygon(self.screen, (12, 13, 18), pts, width=1)
-                px += max(6, int(11 * s))
-            y += theme.SIDE_LINE_H
+            label = f"{count}/{nxt}" if nxt is not None else f"{count}"
+            cnt_color = theme.GOLD if active else theme.TEXT_DIM
+            cimg = render(label, theme.FS_TINY, cnt_color)
+            self.screen.blit(cimg, cimg.get_rect(midright=(right, cy)))
+
+            y += line_h
         return y
 
     def drawing_piece(self):
@@ -425,20 +351,18 @@ class AppDrawMixin:
         if cell is not None and self.piece_at_board(*cell) is None:
             draw_piece(self.screen, cell_rect(*cell), v, ghost=True)
 
-        # 拖到商店区域：描红 + 卖出金额提示
-        if mouse[1] >= theme.SHOP_Y - 10 * theme.S:
-            shop_rect = pygame.Rect(
-                theme.SHOP_X - 8 * theme.S,
-                theme.SHOP_Y - 8 * theme.S,
-                theme.SHOP_W + 16 * theme.S,
-                theme.SHOP_H + 16 * theme.S,
-            )
+        # 拖到最底部空条（商店搬走后的留白）：描红 + 卖出金额提示
+        if self._sell_zone().collidepoint(mouse):
             pygame.draw.rect(
-                self.screen, theme.HP_RED, shop_rect, width=2, border_radius=12 * theme.S
+                self.screen, theme.HP_RED, self._sell_zone(), width=2, border_radius=12 * theme.S
             )
             copies = 3 ** (piece.star - 1)
             value = load_units()[piece.tid].cost * copies
-            tooltip(self.screen, f"卖出 +{value} 金", (mouse[0] + 12 * theme.S, theme.SHOP_Y - 34 * theme.S))
+            tooltip(
+                self.screen,
+                f"卖出 +{value} 金",
+                (mouse[0] + 12 * theme.S, self._sell_zone().y - 34 * theme.S),
+            )
 
     def draw_drag_icon(self) -> None:
         """跟手对象层：拖拽中的棋子 / 装备图标，在全部面板之后绘制（需求3）。
@@ -519,13 +443,14 @@ class AppDrawMixin:
             if rect.collidepoint(mouse):
                 return trait_records(tid, count), trait_color(tid)
 
-        # 装备栏：属性 + 特效 + 当前能合的配方
-        iidx = item_slot_at(mouse, self.item_scroll, len(you.item_bench))
-        if iidx is not None and iidx < len(you.item_bench):
-            item_id = you.item_bench[iidx].item_id
-            records = item_records(item_id, have=self._bench_base_counts())
-            accent = theme.GOLD if "+" in item_id else theme.ACCENT
-            return records, accent
+        # 装备栏（只有装备页可见）：属性 + 特效 + 当前能合的配方
+        if self.side_tab == "items":
+            iidx = item_slot_at(mouse, self.item_scroll, len(you.item_bench))
+            if iidx is not None and iidx < len(you.item_bench):
+                item_id = you.item_bench[iidx].item_id
+                records = item_records(item_id, have=self._bench_base_counts())
+                accent = theme.GOLD if "+" in item_id else theme.ACCENT
+                return records, accent
         return None
 
     def _detail_anchor(self):
@@ -597,8 +522,12 @@ class AppDrawMixin:
         mouse = drag["mouse"]
         tip_pos = (mouse[0] + 12 * theme.S, mouse[1])
 
-        # 装备栏：与另一件基础装备合成
-        idx = item_slot_at(mouse, self.item_scroll, len(you.item_bench))
+        # 装备栏（只有装备页可见）：与另一件基础装备合成
+        idx = (
+            item_slot_at(mouse, self.item_scroll, len(you.item_bench))
+            if self.side_tab == "items"
+            else None
+        )
         if idx is not None and idx < len(you.item_bench) and idx != drag["slot"]:
             other = you.item_bench[idx]
             if other is not item:
@@ -637,22 +566,8 @@ class AppDrawMixin:
 
     def draw_fx(self) -> None:
         for fx in self.fx:
-            if fx["kind"] == "fly":
-                self._draw_fly(fx)
-            elif fx["kind"] == "star":
+            if fx["kind"] == "star":
                 self._draw_star(fx)
-
-    def _draw_fly(self, fx) -> None:
-        t = 1 - fx["life"] / fx["total"]
-        ease = 1 - (1 - t) ** 2
-        x = fx["a"][0] + (fx["b"][0] - fx["a"][0]) * ease
-        y = fx["a"][1] + (fx["b"][1] - fx["a"][1]) * ease
-        y -= math.sin(math.pi * t) * 60 * theme.S
-        size = int(theme.BENCH_CELL * (1.1 - 0.35 * t))
-        v = visual_from_tid(fx["tid"], 1, "blue")
-        r = pygame.Rect(0, 0, size, size)
-        r.center = (int(x), int(y))
-        draw_piece(self.screen, r, v)
 
     def _draw_star(self, fx) -> None:
         t = 1 - fx["life"] / fx["total"]

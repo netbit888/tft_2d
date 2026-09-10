@@ -88,6 +88,7 @@ class Player:
     item_bench: list[ItemInstance] = field(default_factory=list)  # 装备栏
     alive: bool = True  # 8 人局淘汰标记
     locked: bool = False  # 商店锁定：本回合结束不刷新（下回合自动解锁）
+    streak: int = 0  # 连胜/连败：>0 连胜、<0 连败、0 表示无连胜连败
 
     @property
     def is_alive(self) -> bool:

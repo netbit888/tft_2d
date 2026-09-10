@@ -131,3 +131,59 @@ def test_champion_picker_five_cost_pages():
     # ESC 关闭
     app.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE))
     assert not app.picker_open
+
+
+def test_shop_popup_and_hud_balls():
+    """金币球开关商店浮层：浮层内买卡/刷新/锁定/关闭，且与 F2/F3、卖出区一致。"""
+    from core.shop import REFRESH_COST
+
+    from render import theme
+    from render.hud_view import gold_ball_hit
+    from render.shop_view import (
+        shop_card_rect,
+        shop_close_rect,
+        shop_lock_rect,
+        shop_refresh_rect,
+    )
+
+    def click(pos):
+        app.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=pos))
+
+    app = _make_app()
+    app.game.you.gold = 60
+    ball = (theme.GOLD_BALL_X, theme.GOLD_BALL_Y)
+
+    # 点金币球开浮层；浮层应能画一帧
+    assert not app.shop_open and gold_ball_hit(ball)
+    click(ball)
+    assert app.shop_open
+    app.draw()
+
+    # 点卡购买（浮层内，不应触发"点面板外关闭"）
+    bench_before = len(app.game.you.bench)
+    click(shop_card_rect(0).center)
+    assert app.shop_open and len(app.game.you.bench) == bench_before + 1
+
+    # 刷新：扣刷新花费；锁定：切换 locked
+    gold_before = app.game.you.gold
+    click(shop_refresh_rect().center)
+    assert app.game.you.gold == gold_before - REFRESH_COST
+    click(shop_lock_rect().center)
+    assert app.game.you.locked
+
+    # 与 F3 自选栏互斥
+    app.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_F3))
+    assert app.picker_open and not app.shop_open
+    app.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE))
+    assert not app.picker_open
+
+    # 重开浮层后点 ✕ 关闭
+    click(ball)
+    assert app.shop_open
+    click(shop_close_rect().center)
+    assert not app.shop_open
+
+    # 浮层关闭时，原商店坐标不再响应购买（避免隐藏区域误买）
+    bench_before = len(app.game.you.bench)
+    click(shop_card_rect(0).center)
+    assert len(app.game.you.bench) == bench_before

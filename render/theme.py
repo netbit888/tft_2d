@@ -54,6 +54,20 @@ def _layout(s: int) -> dict:
     board_area_h = 470 * s
     side_w = 268 * s
 
+    # 左侧面板拆成“页签栏 + 内容区”：窄按钮栏竖排「羁绊 / 装备」，
+    # 点哪个页签，右侧内容区就显示哪个（羁绊详情 / 装备栏）。
+    side_pad = 14 * s
+    side_tab_w = 52 * s
+    side_tab_gap = 8 * s
+    side_btn = 46 * s
+    side_btn_gap = 10 * s
+    side_content_x = side_pad + side_tab_w + side_tab_gap
+    side_content_w = side_w - side_pad * 2 - side_tab_w - side_tab_gap
+    side_panel_y = top_h + 12 * s
+    side_panel_h = board_area_h - 24 * s
+    side_line_h = 40 * s  # 羁绊行高（含六边形图标）
+    trait_hex = 32 * s  # 羁绊六边形图标边长
+
     board_cols, board_rows = 7, 8
     # 六边形（尖顶朝上）蜂窝棋盘：hex_r 是外接圆半径，行列间距按正六边形几何推导。
     hex_r = 33 * s
@@ -72,14 +86,47 @@ def _layout(s: int) -> dict:
     bench_x = (win_w - bench_w) // 2
     bench_y = top_h + board_area_h + 8 * s
 
+    # 商店改为「弹出式浮层」：点右下金币球打开，卡面坐标即浮层内那一行。
+    # shop_x/shop_y 仍是卡面左上角，命中检测直接复用。
     shop_slots = 5
     shop_card_w = 160 * s
     shop_card_h = 112 * s
     shop_gap = 12 * s
     shop_w = shop_slots * shop_card_w + (shop_slots - 1) * shop_gap
-    shop_h = 148 * s
-    shop_y = win_h - shop_h + 12 * s
-    shop_x = side_w + 20 * s  # 商店左对齐，右侧留给装备栏/按钮
+    shop_h = shop_card_h
+    shop_panel_w = 920 * s
+    shop_panel_h = 316 * s
+    shop_panel_x = (win_w - shop_panel_w) // 2
+    shop_panel_y = (win_h - shop_panel_h) // 2
+    shop_x = shop_panel_x + (shop_panel_w - shop_w) // 2
+    shop_y = shop_panel_y + 58 * s
+
+    # 浮层：右上关闭 + 底部「刷新 / 锁定」两枚按钮
+    shop_btn_w, shop_btn_h = 150 * s, 44 * s
+    shop_btn_y = shop_panel_y + 232 * s
+    shop_refresh_x = shop_panel_x + 60 * s
+    shop_lock_x = shop_refresh_x + shop_btn_w + 24 * s
+    shop_close_w = 34 * s
+    shop_close_x = shop_panel_x + shop_panel_w - shop_close_w - 14 * s
+    shop_close_y = shop_panel_y + 14 * s
+
+    # 浮层：刷新概率一行（费用方块 + 百分比）
+    shop_odds_x = shop_panel_x + 190 * s
+    shop_odds_y = shop_panel_y + 176 * s
+    shop_odds_gap = 124 * s
+    shop_odds_box = 20 * s
+
+    # 拖到最底部空条 = 卖出（原来商店所占的位置，商店搬走后留白）
+    sell_zone_x = side_w + 20 * s
+    sell_zone_w = shop_w
+    sell_zone_y = bench_y + bench_cell + 30 * s
+    sell_zone_h = win_h - sell_zone_y
+
+    # ---------- 底部 HUD 两球（左下经验球 / 右下金币球） ----------
+    ball_r = 52 * s
+    ball_y = win_h - 92 * s
+    xp_ball_x = 96 * s
+    gold_ball_x = win_w - 96 * s
 
     pad = 18 * s
 
@@ -90,54 +137,26 @@ def _layout(s: int) -> dict:
     roster_row_h = 30 * s
 
     # 装备栏：每页 3 列 x 4 行网格（库存超一页后用滚轮翻页，背包不设上限），
-    # 面板自上而下：标题条（含翻页指示）→ 网格 → 底部留白。
+    # 面板自上而下：标题条（含翻页指示）→ 网格。
+    # 页签切到「装备」时，整块面板铺在左侧内容区（网格水平居中）。
     item_cols, item_rows = 3, 4
     item_cell = 40 * s
     item_gap = 8 * s
-    item_pad_x = 12 * s
     item_title_h = 30 * s
     item_foot = 6 * s
     item_grid_w = item_cols * item_cell + (item_cols - 1) * item_gap
     item_grid_h = item_rows * item_cell + (item_rows - 1) * item_gap
-    item_w = item_grid_w + 2 * item_pad_x
-    item_h = item_title_h + item_grid_h + item_foot
-    item_x = win_w - item_w - 12 * s
-    item_y = roster_y + roster_row_h * 9 + 24 * s  # 战况面板最多 8 行 + 标题
+    item_pad_x = max(12 * s, (side_content_w - item_grid_w) // 2)
+    item_w = side_content_w
+    item_h = side_panel_h
+    item_x = side_content_x
+    item_y = side_panel_y
 
-    # ---------- 顶栏三段式 ----------
-    # 左：回合 + 等级 + 经验
-    round_x, round_y = pad, 2 * s
-    level_x, level_y = pad, 12 * s
-    xp_bar_x, xp_bar_y = 70 * s, 27 * s
-    xp_bar_w, xp_bar_h = 90 * s, 9 * s
-    xp_text_x, xp_text_y = 166 * s, 23 * s
-    # 中：刷新概率
-    odds_x = 330 * s
-    odds_y = 24 * s
-    odds_gap = 116 * s
-    odds_box = 18 * s
-    # 右：金币 + 利息
-    gold_x = win_w - 190 * s
-    gold_y = 4 * s
-    interest_x = win_w - 190 * s
-    interest_y = 42 * s
-
-    # ---------- 左下角操作区（购买经验 / 刷新） ----------
-    op_x = 14 * s
-    op_w = 120 * s
-    op_h = 38 * s
-    op_gap = 10 * s
-    op_refresh_y = 536 * s
-    op_xp_y = 536 * s + op_h + op_gap
-
-    # ---------- 右下角（锁定 / 开战） ----------
+    # ---------- 右下角（开战；左下买经验、商店买卖都搬到两个球上了） ----------
     side_btn_w = 110 * s
-    lock_x = win_w - side_btn_w - 12 * s
-    lock_y = shop_y
-    lock_h = 38 * s
     fight_x = win_w - side_btn_w - 12 * s
-    fight_y = shop_y + shop_card_h - 52 * s
     fight_h = 52 * s
+    fight_y = ball_y - ball_r - 86 * s  # 悬在右下金币球上方
 
     # ---------- 成装自选台（部署期 F2 打开） ----------
     armory_cols = 7
@@ -212,7 +231,7 @@ def _layout(s: int) -> dict:
         "BENCH_W": bench_w,
         "BENCH_X": bench_x,
         "BENCH_Y": bench_y,
-        # ---------- 商店 ----------
+        # ---------- 商店（弹出式浮层：卡面 + 概率 + 刷新 / 锁定） ----------
         "SHOP_SLOTS": shop_slots,
         "SHOP_CARD_W": shop_card_w,
         "SHOP_CARD_H": shop_card_h,
@@ -221,40 +240,40 @@ def _layout(s: int) -> dict:
         "SHOP_X": shop_x,
         "SHOP_Y": shop_y,
         "SHOP_H": shop_h,
-        # ---------- 顶栏（三段式） ----------
+        "SHOP_PANEL_X": shop_panel_x,
+        "SHOP_PANEL_Y": shop_panel_y,
+        "SHOP_PANEL_W": shop_panel_w,
+        "SHOP_PANEL_H": shop_panel_h,
+        "SHOP_CLOSE_X": shop_close_x,
+        "SHOP_CLOSE_Y": shop_close_y,
+        "SHOP_CLOSE_W": shop_close_w,
+        "SHOP_REFRESH_X": shop_refresh_x,
+        "SHOP_REFRESH_Y": shop_btn_y,
+        "SHOP_REFRESH_W": shop_btn_w,
+        "SHOP_REFRESH_H": shop_btn_h,
+        "SHOP_LOCK_X": shop_lock_x,
+        "SHOP_LOCK_Y": shop_btn_y,
+        "SHOP_LOCK_W": shop_btn_w,
+        "SHOP_LOCK_H": shop_btn_h,
+        "SHOP_ODDS_X": shop_odds_x,
+        "SHOP_ODDS_Y": shop_odds_y,
+        "SHOP_ODDS_GAP": shop_odds_gap,
+        "SHOP_ODDS_BOX": shop_odds_box,
+        # ---------- 卖出区（拖到最底部空条） ----------
+        "SELL_ZONE_X": sell_zone_x,
+        "SELL_ZONE_Y": sell_zone_y,
+        "SELL_ZONE_W": sell_zone_w,
+        "SELL_ZONE_H": sell_zone_h,
+        # ---------- 底部 HUD 两球 ----------
+        "BALL_R": ball_r,
+        "XP_BALL_X": xp_ball_x,
+        "XP_BALL_Y": ball_y,
+        "GOLD_BALL_X": gold_ball_x,
+        "GOLD_BALL_Y": ball_y,
+        # ---------- 顶栏（仅余高度，供棋盘/横幅定位；顶栏本身已移除） ----------
         "TOP_H": top_h,
         "PAD": pad,
-        # 左：等级 + 经验
-        "ROUND_X": round_x,
-        "ROUND_Y": round_y,
-        "LEVEL_X": level_x,
-        "LEVEL_Y": level_y,
-        "XP_BAR_X": xp_bar_x,
-        "XP_BAR_Y": xp_bar_y,
-        "XP_BAR_W": xp_bar_w,
-        "XP_BAR_H": xp_bar_h,
-        "XP_TEXT_X": xp_text_x,
-        "XP_TEXT_Y": xp_text_y,
-        # 中：刷新概率
-        "ODDS_X": odds_x,
-        "ODDS_Y": odds_y,
-        "ODDS_GAP": odds_gap,
-        "ODDS_BOX": odds_box,
-        # 右：金币 + 利息
-        "GOLD_X": gold_x,
-        "GOLD_Y": gold_y,
-        "INTEREST_X": interest_x,
-        "INTEREST_Y": interest_y,
-        # ---------- 左下角操作区 ----------
-        "OP_X": op_x,
-        "OP_W": op_w,
-        "OP_H": op_h,
-        "OP_REFRESH_Y": op_refresh_y,
-        "OP_XP_Y": op_xp_y,
         # ---------- 右下角按钮 ----------
-        "LOCK_X": lock_x,
-        "LOCK_Y": lock_y,
-        "LOCK_H": lock_h,
         "FIGHT_X": fight_x,
         "FIGHT_Y": fight_y,
         "FIGHT_H": fight_h,
@@ -266,15 +285,23 @@ def _layout(s: int) -> dict:
         "HP1_X": hp1_x,
         "HP2_X": hp2_x,
         "POP_X": pop_x,
-        # ---------- 侧边羁绊面板 ----------
+        # ---------- 左侧面板（页签栏 + 内容区） ----------
         "SIDE_W": side_w,
         "BOARD_AREA_H": board_area_h,
-        "SIDE_PAD": 14 * s,
-        "SIDE_LINE_H": 22 * s,
-        "TRAIT_DOT": 16 * s,
+        "SIDE_PAD": side_pad,
+        "SIDE_TAB_W": side_tab_w,
+        "SIDE_TAB_GAP": side_tab_gap,
+        "SIDE_BTN": side_btn,
+        "SIDE_BTN_GAP": side_btn_gap,
+        "SIDE_CONTENT_X": side_content_x,
+        "SIDE_CONTENT_W": side_content_w,
+        "SIDE_PANEL_Y": side_panel_y,
+        "SIDE_PANEL_H": side_panel_h,
+        "SIDE_LINE_H": side_line_h,
+        "TRAIT_HEX": trait_hex,
         # ---------- 提示行（放在备战席与商店之间，不再和商店卡重叠） ----------
         "HINT_Y": bench_y + bench_cell + 8 * s,
-        # ---------- 装备栏（右侧中部，标题 + 每页 3x4 网格，背包不限量） ----------
+        # ---------- 装备栏（左侧内容区，标题 + 每页 3x4 网格，背包不限量） ----------
         "ITEM_CELL": item_cell,
         "ITEM_GAP": item_gap,
         "ITEM_COLS": item_cols,

@@ -6,15 +6,15 @@
   本模块只保留：初始化、主循环、战斗回放/回合推进状态机与 draw() 编排。
 
 操作：
-  点商店卡片        购买（进入备战席）
-  备战席 -> 棋盘     上场
-  棋盘内拖动         交换位置
-  棋盘 -> 备战席     下场
-  右键棋子 / 拖到商店  卖出
-  拖装备到棋子       装备
-  装备栏内拖动       合成（两件基础装备）
-  开战               自动补位 -> 电脑运营 -> 战斗 -> 结算
-  升级按钮           花 4 金买 4 经验提升人口上限
+  右下金币球          打开/关闭商店浮层（浮层内刷新 / 锁定 / 点卡购买）
+  左下经验球          点（或长按）花金币买经验提升人口上限
+  备战席 -> 棋盘       上场
+  棋盘内拖动           交换位置
+  棋盘 -> 备战席       下场
+  右键棋子 / 拖到最底部空条  卖出
+  拖装备到棋子         装备
+  装备栏内拖动         合成（两件基础装备）
+  开战                 自动补位 -> 电脑运营 -> 战斗 -> 结算
 
 支持 1v1 与 8 人局（--players 8）。8 人局每回合两两配对打 1v1。
 """
@@ -25,7 +25,6 @@ import pygame
 
 from core import buy_xp
 from core.events import EV_CAST, EV_DEATH, EV_END, EV_HEAL, format_event
-from core.shop import REFRESH_COST
 
 from . import theme
 from .app_draw import AppDrawMixin
@@ -34,7 +33,8 @@ from .assets import enable_dpi_awareness
 from .audio import Audio
 from .battle_view import BattleView
 from .board_view import _clear_caches, draw_grid
-from .shop_view import draw_bench, draw_shop
+from .hud_view import xp_ball_hit
+from .shop_view import draw_bench
 from .widgets import Button
 
 
@@ -80,17 +80,19 @@ class App(AppDrawMixin, AppStateMixin):
         self.drag: dict | None = None  # {"kind":"piece"|"item", "origin", "mouse", ...}
         self.battle: BattleView | None = None
         self.floaters: list[dict] = []  # 金币变动飘字
-        self.fx: list[dict] = []  # 升星闪光 / 卡片飞入
+        self.fx: list[dict] = []  # 升星闪光
         self.time = 0.0
         self.gold_shown = float(game.you.gold)
         self.banner: dict | None = None  # 回合横幅
         self.hover_item: int | None = None
         self.item_scroll = 0  # 装备栏背包滚动偏移（无上限背包，鼠标悬停滚轮翻页）
+        self.side_tab = "traits"  # 左侧面板页签：traits=羁绊 / items=装备
         self.armory_open = False  # 装备自选台（F2 唤出/关闭）
         self.armory_tab = 0  # 自选台当前页：0=成装，1=散件（重开时保留上次页）
         self.picker_open = False  # 棋子自选栏（F3 唤出/关闭）
         self.picker_cost = 1  # 棋子自选栏当前费用页 1~5（重开时保留上次页）
-        self.xp_held = False  # 升级按钮是否被按住（长按连升）
+        self.shop_open = False  # 商店浮层（点右下金币球唤出/关闭）
+        self.xp_held = False  # 经验球是否被按住（长按连升）
         self.xp_cd = 0.0  # 长按连升冷却
         # 左键单击详情：press 记录按下起点，原地松开判为单击
         self._press: dict | None = None
@@ -113,18 +115,7 @@ class App(AppDrawMixin, AppStateMixin):
         self._init_buttons()
 
     def _init_buttons(self) -> None:
-        op_w, op_h = theme.OP_W, theme.OP_H
-        # 左下角操作区：刷新 + 购买经验
-        self.btn_refresh = Button(
-            (theme.OP_X, theme.OP_REFRESH_Y, op_w, op_h), f"刷新 {REFRESH_COST}金", theme.ACCENT
-        )
-        self.btn_xp = Button(
-            (theme.OP_X, theme.OP_XP_Y, op_w, op_h), "购买经验 4", (210, 150, 70)
-        )
-        # 右下角：锁定商店 + 开战
-        self.btn_lock = Button(
-            (theme.LOCK_X, theme.LOCK_Y, theme.SIDE_BTN_W, theme.LOCK_H), "锁定", theme.BORDER
-        )
+        # 右下角：开战按钮（刷新 / 购买经验 / 锁定已分别并入商店浮层与双球）
         self.btn_fight = Button(
             (theme.FIGHT_X, theme.FIGHT_Y, theme.SIDE_BTN_W, theme.FIGHT_H), "开战", (86, 190, 130), pulse=True
         )
@@ -148,17 +139,20 @@ class App(AppDrawMixin, AppStateMixin):
         pygame.quit()
 
     def _update_held_xp(self, dt: float) -> None:
-        """升级按钮长按连升：按住不放时按冷却连续买经验。"""
-        if not self.xp_held or self.phase != self.PHASE_DEPLOY or self.armory_open or self.picker_open:
+        """经验球长按连升：按住不放时按冷却连续买经验。"""
+        if (
+            not self.xp_held
+            or self.phase != self.PHASE_DEPLOY
+            or self.armory_open
+            or self.picker_open
+            or self.shop_open
+        ):
             return
         self.xp_cd -= dt
         if self.xp_cd > 0:
             return
-        # 鼠标仍按住且在按钮上才继续
-        if not pygame.mouse.get_pressed()[0]:
-            self.xp_held = False
-            return
-        if not self.btn_xp.rect.collidepoint(pygame.mouse.get_pos()):
+        # 鼠标仍按住且在经验球上才继续
+        if not pygame.mouse.get_pressed()[0] or not xp_ball_hit(pygame.mouse.get_pos()):
             self.xp_held = False
             return
         self._do_upgrade()
@@ -197,6 +191,8 @@ class App(AppDrawMixin, AppStateMixin):
         """
         g = self.game
         self.detail = None  # 进入战斗先收起棋子详情
+        self.shop_open = False  # 商店浮层不进战斗
+        self.xp_held = False
 
         self.audio.sfx.play("fight")
         self.audio.music.play("battle")
@@ -276,6 +272,8 @@ class App(AppDrawMixin, AppStateMixin):
         self.phase = self.PHASE_DEPLOY
         self._view = 0  # 新回合默认回到自己视角
         self._roster_rows = []
+        self.shop_open = False  # 新回合收起商店浮层
+        self.xp_held = False
         self.audio.music.play("deploy")
         self.message = ""
         self.detail = None
@@ -284,15 +282,10 @@ class App(AppDrawMixin, AppStateMixin):
     def draw(self) -> None:
         deploying = self.phase == self.PHASE_DEPLOY
         self.btn_fight.enabled = deploying
-        self.btn_refresh.enabled = deploying
-        self.btn_xp.enabled = deploying
-        self.btn_lock.enabled = deploying
 
         self.screen.fill(theme.BG)
-        self.draw_topbar()
-        self.draw_op_buttons()
         self.draw_hp_row()
-        self.draw_trait_panel()
+        self.draw_side_panel()
 
         if self.phase == self.PHASE_BATTLE and self.battle is not None:
             self.battle.draw(self.screen)
@@ -300,24 +293,26 @@ class App(AppDrawMixin, AppStateMixin):
             draw_grid(self.screen)
             self.draw_teams()
             draw_bench(self.screen, self.visible_bench())
-            draw_shop(
-                self.screen,
-                self.game.shop_you.slots,
-                hints=self._shop_hints(),
-                t=self.time,
-            )
             self.draw_hints()
             self.draw_drag()
 
-        self.draw_item_bench_ui()
         self.draw_roster_ui()
         self.draw_side_buttons()
+        self.draw_hud()
         self.draw_fx()
         self.draw_floaters()
 
-        # 悬停详情 tooltip 置于最上层（结果/回合横幅之前）；自选台/自选栏打开时不画，避免被遮罩透出
-        if self.phase == self.PHASE_DEPLOY and not self.armory_open and not self.picker_open:
+        # 悬停详情 tooltip 置于最上层（结果/回合横幅之前）；自选台/自选栏/商店浮层打开时不画，避免被遮罩透出
+        if (
+            self.phase == self.PHASE_DEPLOY
+            and not self.armory_open
+            and not self.picker_open
+            and not self.shop_open
+        ):
             self._draw_hover_layer()
+
+        # 商店浮层：遮罩 + 面板（点右下金币球唤出），独占鼠标事件
+        self.draw_shop_popup()
 
         # 装备自选台（F2）/ 棋子自选栏（F3）：画在信息层之上，独占鼠标事件
         if self.armory_open:
