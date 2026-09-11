@@ -61,7 +61,7 @@ class App(AppDrawMixin, AppStateMixin):
         # 默认全屏：FULLSCREEN | SCALED 把固定内部分辨率(1280x800)硬件缩放到整屏，
         # 布局坐标无需改动；想用普通窗口传 fullscreen=False（或命令行 --windowed）。
         self.fullscreen = fullscreen
-        picked = scale if scale else 1
+        picked = scale if scale else 2
         self.scale = theme.set_scale(picked)
         if scale and self.scale != scale:
             print(f"[提示] 缩放被限制为 {self.scale}x（支持 {theme.MIN_SCALE}~{theme.MAX_SCALE}）")

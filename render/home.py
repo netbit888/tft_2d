@@ -45,7 +45,7 @@ class HomeView:
         # 默认全屏：FULLSCREEN | SCALED 把固定内部分辨率(1280x800)缩放到整屏；
         # 普通窗口传 fullscreen=False（命令行 --windowed）。
         self.fullscreen = fullscreen
-        picked = scale if scale else 1
+        picked = scale if scale else 2
         self.scale = theme.set_scale(picked)
         _clear_caches()
         pygame.display.set_caption(f"TFT 2D GAME  ({theme.WINDOW_W}x{theme.WINDOW_H})")

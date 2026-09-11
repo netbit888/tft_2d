@@ -32,7 +32,7 @@ def main(argv: list[str] | None = None) -> None:
         "--scale",
         type=int,
         default=None,
-        help="界面缩放因子（1=1280x800，2=2560x1600），不传默认 1x；分辨率靠全屏硬件缩放",
+        help="界面缩放因子（1=1280x800，2=2560x1600），不传默认 2x（更清晰）；分辨率靠全屏硬件缩放",
     )
     ap.add_argument(
         "--players",

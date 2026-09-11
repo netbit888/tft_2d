@@ -82,11 +82,12 @@ Windows 下直接双击，脚本会自动补装依赖：
 ### 玩法一：图形界面（自己玩）
 
 ```bash
-python app.py                    # 进入游戏主页，点“开始游戏”进 8 人局
+python app.py                    # 进入游戏主页，点“开始游戏”进 8 人局（默认全屏 + 2x 缩放）
 python app.py --players 1        # 直达 1v1（跳过主页，脚本/测试兼容）
 python app.py --players 8        # 直达 8 人局
 python app.py --seed 7           # 指定种子，复现同一局
-python app.py --scale 2          # 大窗口 2x 缩放（默认 1280x800 小窗）
+python app.py --scale 2          # 2x 缩放（默认即 2x；1=1280x800 小分辨率）
+python app.py --windowed         # 退回普通窗口（默认全屏）
 ```
 
 游戏主页（`render/home.py`）：居中大字标题 + 背景少量漂浮棋子，右下角一颗大号
