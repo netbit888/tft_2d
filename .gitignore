@@ -23,3 +23,7 @@ Thumbs.db
 # 本地临时目录（对比产物 / 一次性脚本）
 _tmp/
 .codebuddy/
+
+# 本地对局存档与 MCP 客户端配置（含本机 Python 路径）
+_game_state.pkl
+.mcp.json
