@@ -100,7 +100,7 @@ def draw_xp_ball(surface: pygame.Surface, player, t: float = 0.0) -> None:
 def draw_gold_ball(
     surface: pygame.Surface, player, t: float = 0.0, gold: float | None = None
 ) -> None:
-    """右下金币球：球心金币值 + 球顶连胜/连败徽章，点它打开商店。
+    """右下金币球：球心金币值 + 球顶连胜/连败徽章 + 球上收入预估，点它打开商店。
 
     gold 用于传入手感数字（滚动中的显示值）；缺省直接读 player.gold。
     """
@@ -118,6 +118,27 @@ def draw_gold_ball(
     text(surface, number, theme.FS_TITLE, theme.GOLD, (x0 + coin_r * 2 + int(4 * s), cy - int(13 * s)))
 
     _draw_streak_badge(surface, cx, cy, int(getattr(player, "streak", 0)))
+    _draw_income_forecast(surface, player, cx, cy)
+
+
+def _draw_income_forecast(surface: pygame.Surface, player, cx: int, cy: int) -> None:
+    """金币球上方一行：下回合收入预估（固定收入 + 按当前金币结算的利息）。
+
+    口径与 Game.begin_round 完全一致：利息按本回合结束时的金币、每 10 金 +1、
+    上限 5；固定收入 Game.ROUND_INCOME。利息 > 0 时金色高亮，提示存钱收益。
+    """
+    from core import Game
+
+    s = theme.S
+    interest = Game.interest_of(player.gold)
+    total = Game.ROUND_INCOME + interest
+    if interest > 0:
+        label = f"下回合 +{total}（收入{Game.ROUND_INCOME}+利息{interest}）"
+        color = theme.GOLD
+    else:
+        label = f"下回合 +{total}（存{Game.INTEREST_PER}金+1利息）"
+        color = theme.TEXT_DIM
+    text(surface, label, theme.FS_TINY, color, (cx, cy - theme.BALL_R - int(24 * s)), center=True)
 
 
 def _flame(surface: pygame.Surface, cx: int, cy: int, size: int, base, core) -> None:

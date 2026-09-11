@@ -411,6 +411,7 @@ class Combat:
                     uid=u.uid,
                     ability=ab.name,
                     target=ally.name,
+                    tuid=ally.uid,
                     amount=healed,
                     hp_left=ally.hp,
                     tx=round(ally.x, 3),
@@ -453,7 +454,9 @@ class Combat:
         self._emit(
             EV_DAMAGE,
             source=source.name,
+            suid=source.uid,
             target=target.name,
+            tuid=target.uid,
             team=source.team,
             kind=kind,
             amount=amount,

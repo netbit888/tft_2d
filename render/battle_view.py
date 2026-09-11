@@ -128,6 +128,13 @@ class BattleView:
         self.flashes: dict[int, float] = {}  # uid -> 剩余闪白时间
         self.banner: dict | None = None
 
+        # 伤害统计：增量扫描事件流聚合（跳过战斗/直接算完也能拿到完整统计）
+        self._stats_scanned = 0
+        self._stats: dict[str, dict[int, float]] = {
+            "dmg": {}, "taken": {}, "heal": {}, "casts": {}
+        }
+        self.show_recap = False  # Tab 开关（结算画面固定显示）
+
         self._init_buttons()
 
     def _init_buttons(self) -> None:
@@ -155,6 +162,8 @@ class BattleView:
                 self.btn_pause.label = "暂停"
         if self.btn_skip.handle(event):
             self.skip()
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_TAB:
+            self.show_recap = not self.show_recap
 
         # 棋盘交互：左键点击棋子开/切详情，点空白处关闭（暂停后可以细看数值）
         if (
@@ -170,10 +179,58 @@ class BattleView:
         """直接算完战斗，不看动画。"""
         while not self.combat.finished:
             self.combat.step()
+        self._scan_events()
         self.floaters.clear()
         self.rings.clear()
         self.bolts.clear()
         self.finish()
+
+    # ---------- 伤害统计 ----------
+
+    def _scan_events(self) -> None:
+        """增量扫描战斗事件流，聚合 uid -> 伤害/承伤/治疗/施法。"""
+        events = self.combat.events
+        if self._stats_scanned > len(events):  # 不可能，防御一下
+            self._stats_scanned = 0
+        for e in events[self._stats_scanned:]:
+            d = e.data
+            if e.type == EV_DAMAGE:
+                self._stats["dmg"][d.get("suid", -1)] = (
+                    self._stats["dmg"].get(d.get("suid", -1), 0.0) + d["amount"]
+                )
+                self._stats["taken"][d.get("tuid", -1)] = (
+                    self._stats["taken"].get(d.get("tuid", -1), 0.0) + d["amount"]
+                )
+            elif e.type == EV_HEAL:
+                uid = d.get("uid", -1)
+                self._stats["heal"][uid] = self._stats["heal"].get(uid, 0.0) + d["amount"]
+            elif e.type == EV_CAST:
+                uid = d.get("uid", -1)
+                self._stats["casts"][uid] = self._stats["casts"].get(uid, 0.0) + 1
+        self._stats_scanned = len(events)
+
+    def stats_rows(self) -> list[dict]:
+        """按队伍返回统计行（伤害降序），供 recap 面板 / 结算画面使用。"""
+        self._scan_events()
+        rows = []
+        for u in self.combat.units:
+            uid = u.uid
+            dmg = self._stats["dmg"].get(uid, 0.0)
+            if dmg <= 0 and self._stats["taken"].get(uid, 0.0) <= 0:
+                continue  # 没参与战斗的单位不列
+            rows.append(
+                {
+                    "team": u.team,
+                    "name": u.name,
+                    "star": u.star,
+                    "dmg": dmg,
+                    "taken": self._stats["taken"].get(uid, 0.0),
+                    "heal": self._stats["heal"].get(uid, 0.0),
+                    "casts": int(self._stats["casts"].get(uid, 0.0)),
+                }
+            )
+        rows.sort(key=lambda r: (-r["dmg"], r["team"], r["name"]))
+        return rows
 
     def finish(self) -> None:
         if self.done:
@@ -183,6 +240,7 @@ class BattleView:
 
     def update(self, dt: float) -> None:
         self._update_fx(dt)
+        self._scan_events()  # 统计聚合与动画解耦：跳过/暂停都不漏
         if self.done or self.paused:
             return
 
@@ -263,7 +321,9 @@ class BattleView:
             self.push_floater(
                 Floater(f"-{d['amount']:.0f}", event_pos(d), color, big=d["crit"])
             )
-            victim = self._unit_near(d["tx"], d["ty"])
+            victim = self.combat.by_uid.get(d.get("tuid"))
+            if victim is None:
+                victim = self._unit_near(d["tx"], d["ty"])
             if victim is not None:
                 self.flashes[victim.uid] = self.FLASH_TIME
             if d["crit"]:
@@ -337,8 +397,20 @@ class BattleView:
         self.draw_fx(surface)
         self.draw_banner(surface)
         self.draw_controls(surface)
+        if self.show_recap:
+            self.draw_recap(surface)
         if self.detail_unit is not None and not self.done:
             self._draw_detail(surface)
+
+    def draw_recap(self, surface: pygame.Surface) -> None:
+        """Tab 开关的战斗中伤害统计面板（悬在控制条上方）。"""
+        from .recap import draw_recap
+
+        w, h = 680 * theme.S, 300 * theme.S
+        rect = pygame.Rect(0, 0, w, h)
+        rect.centerx = theme.WINDOW_W // 2
+        rect.bottom = theme.WINDOW_H - theme.CTRL_H - 8 * theme.S
+        draw_recap(surface, self.stats_rows(), rect, title="伤害统计（Tab 收起）")
 
     def _draw_detail(self, surface: pygame.Surface) -> None:
         """把点选单位的实时详情面板画在最上层（固定在与单位绑定的锚点旁）。"""
@@ -351,6 +423,7 @@ class BattleView:
 
     def draw_units(self, surface: pygame.Surface) -> None:
         alpha = min(1.0, self.acc / DT) if not self.combat.finished else 1.0
+        rows = []  # (绘制深度 y, 单位, rect, 阵亡淡出参数)
         for u in self.combat.units:
             fade = self.fades.get(u.uid)
             if not u.alive and fade is None:
@@ -368,8 +441,12 @@ class BattleView:
                 sx += bump[1] * push
                 sy += bump[2] * push
 
-            rect = cell_rect_at(ix, iy)  # 尺寸随所在深度透视缩放
+            rect = cell_rect_at(ix, iy)  # 尺寸按插值坐标所在深度透视缩放
+            rect.center = (round(sx), round(sy))  # 位置含近战突进偏移（屏幕空间）
+            rows.append((sy, u, rect, fade))
 
+        # 2.5D 透视：按投影 y 远→近排序，近处棋子压住远处（跨队伍统一排序）
+        for _, u, rect, fade in sorted(rows, key=lambda r: r[0]):
             if fade is not None:
                 k = fade / self.FADE_TIME  # 1 -> 0
                 cell_px = rect.width
@@ -445,7 +522,7 @@ class BattleView:
         self.btn_skip.draw(surface)
 
         c = self.combat
-        status = f"第 {c.tick} tick / {c.tick / 20:.1f}s    当前 {self.speed}x"
+        status = f"第 {c.tick} tick / {c.tick / 20:.1f}s    当前 {self.speed}x    Tab=伤害统计"
         if self.paused:
             status += "（已暂停）"
         text(

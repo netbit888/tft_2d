@@ -701,11 +701,13 @@ def draw_deploy_highlight(surface: pygame.Surface, accent=None, t: float = 0.0) 
 
 
 def draw_placements(surface: pygame.Surface, placements: list[dict], team: str) -> None:
-    """把一支队伍按布阵画到棋盘上。
+    """把一支队伍按布阵画到棋盘上（按投影 y 远→近排序，近处棋子压住远处）。
 
     placements 是 auto_place / build_team 的产出：[{"id", "star", "pos", "equip"}, ...]
     """
-    for p in placements:
+    # 2.5D 透视下必须按深度排序绘制，否则列表顺序会让近处棋子被远处棋子遮挡
+    ordered = sorted(placements, key=lambda p: hex_point(p["pos"][0], p["pos"][1])[1])
+    for p in ordered:
         col, row = int(p["pos"][0]), int(p["pos"][1])
         v = visual_from_tid(p["id"], int(p.get("star", 1)), team)
         draw_piece(surface, cell_rect(col, row), v)

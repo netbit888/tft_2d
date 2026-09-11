@@ -640,3 +640,14 @@ class AppDrawMixin:
             y += 28 * theme.S
 
         self.btn_next.draw(self.screen, self.time)
+
+        # 伤害统计：本回合战斗的复盘（数据来自事件流聚合，跳过战斗也有）
+        if self.battle is not None:
+            from .recap import draw_recap
+
+            rows = self.battle.stats_rows()
+            if rows:
+                recap = pygame.Rect(0, 0, 680 * theme.S, 270 * theme.S)
+                recap.centerx = theme.WINDOW_W // 2
+                recap.bottom = theme.WINDOW_H - 10 * theme.S
+                draw_recap(self.screen, rows, recap, title="本回合伤害统计")

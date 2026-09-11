@@ -215,6 +215,10 @@ class App(AppDrawMixin, AppStateMixin):
         outcome = g.finish_battle(combat)  # 结算 + 掉落 + 淘汰判定（内核单一真源）
         result = outcome["result"]
 
+        if combat is None:
+            # 一方无棋子直接结算：清掉旧战斗对象，结算画面不显示过期伤害统计
+            self.battle = None
+
         if combat is not None and self.log_to_console:
             print(f"\n===== 回合 {g.round} 战斗 =====")
             for e in combat.events:
