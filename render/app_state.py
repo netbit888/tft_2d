@@ -118,6 +118,7 @@ class AppStateMixin:
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.QUIT:
             self.running = False
+            self._esc_quit = True  # 关窗 = 中途退出，菜单循环据此回主页/退出
             return
         if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
             if self.audio.enabled:
@@ -141,7 +142,9 @@ class AppStateMixin:
             if self.detail is not None:
                 self.detail = None
                 return
+            # 部署期 ESC（无任何浮层/详情时）= 中途退回主页
             self.running = False
+            self._esc_quit = True
             return
         if event.type == pygame.KEYDOWN and event.key == pygame.K_F2 and self.phase == self.PHASE_DEPLOY:
             self._toggle_armory()
@@ -181,7 +184,7 @@ class AppStateMixin:
         elif self.phase in (self.PHASE_RESULT, self.PHASE_OVER):
             if self.btn_next.handle(event):
                 if self.phase == self.PHASE_OVER:
-                    self.running = False
+                    self.running = False  # 终局“返回主页”：自然结束，菜单循环回主页
                 else:
                     self.next_round()
 

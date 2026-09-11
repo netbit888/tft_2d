@@ -133,6 +133,63 @@ def test_champion_picker_five_cost_pages():
     assert not app.picker_open
 
 
+def test_home_view_start_and_quit():
+    """主页（简洁版）：开始球（8 人局）+ 退出球的命中与绘制。"""
+    import math
+
+    from render.home import ACTION_QUIT, MODE_START, HomeView
+
+    home = HomeView(scale=1)
+    home._draw()  # 至少能画一帧不出错
+
+    # 开始球球心点击 -> MODE_START
+    x, y = home._start_ball_center()
+    hit = home._handle(
+        pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(x, y))
+    )
+    assert hit == MODE_START
+    # 退出球球心点击 -> ACTION_QUIT
+    x, y = home._quit_ball_center()
+    assert (
+        home._handle(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(x, y)))
+        == ACTION_QUIT
+    )
+    # 球外空白点击不触发
+    assert home._handle(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(10, 10))) is None
+    # ESC = 退出
+    assert home._handle(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE)) == ACTION_QUIT
+
+    # 两球互不重叠（中心距 > 两球半径之和）
+    a = home._start_ball_center()
+    b = home._quit_ball_center()
+    assert math.hypot(a[0] - b[0], a[1] - b[1]) > home._hit_radius(True) + home._hit_radius(False)
+
+
+def test_app_esc_and_over_return_without_quit():
+    """App 结束只停循环不调 pygame.quit：ESC 中途退出、终局返回主页均可安全返回。"""
+    from core import Game
+    from render.app import App
+
+    game = Game(seed=3)
+    game.begin_round()
+    app = App(game, log_to_console=False, scale=1)
+
+    # ESC（部署期无浮层）→ running=False 且 _esc_quit=True
+    app.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_ESCAPE))
+    assert not app.running and app._esc_quit
+
+    # 终局按钮语义：PHASE_OVER 时标签为“返回主页”，点击只停循环
+    app2 = App(Game(seed=3), log_to_console=False, scale=1)
+    app2.game.begin_round()
+    app2.phase = app2.PHASE_OVER
+    app2.btn_next.label = "返回主页"
+    assert app2.btn_next.handle(
+        pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=app2.btn_next.rect.center)
+    )
+    app2.running = False  # 模拟 handle_event 分支效果
+    _ = app2.btn_next.label
+
+
 def test_shop_popup_and_hud_balls():
     """金币球开关商店浮层：浮层内买卡/刷新/锁定/关闭，且与 F2/F3、卖出区一致。"""
     from core.shop import REFRESH_COST

@@ -360,9 +360,4 @@ def set_scale(scale: int) -> int:
     return s
 
 
-def auto_scale(avail_w: int, avail_h: int) -> int:
-    """按可用屏幕尺寸挑一个整数缩放因子（宁小勿大，避免窗口超出屏幕）。"""
-    return max(MIN_SCALE, min(MAX_SCALE, min(avail_w // DESIGN_W, avail_h // DESIGN_H)))
-
-
 set_scale(1)

@@ -76,18 +76,23 @@ Windows 下直接双击，脚本会自动补装依赖：
 
 | 文件 | 作用 |
 | --- | --- |
-| `start_gui.bat` | 图形界面 1v1 对战 |
-| `start_gui_8p.bat` | 图形界面 8 人局 |
+| `start_gui.bat` | 进入游戏主页（开始游戏 = 8 人局） |
 | `run.bat` | 菜单：图形界面 / 命令行对局 / 自动演示 / 平衡统计 / 内核自检 |
 
 ### 玩法一：图形界面（自己玩）
 
 ```bash
-python app.py                    # 图形界面 1v1
+python app.py                    # 进入游戏主页，点“开始游戏”进 8 人局
+python app.py --players 1        # 直达 1v1（跳过主页，脚本/测试兼容）
+python app.py --players 8        # 直达 8 人局
 python app.py --seed 7           # 指定种子，复现同一局
-python app.py --players 8        # 图形界面 8 人局
-python app.py --scale 2          # 高分屏 2x 缩放（不传则自动选择）
+python app.py --scale 2          # 大窗口 2x 缩放（默认 1280x800 小窗）
 ```
+
+游戏主页（`render/home.py`）：居中大字标题 + 背景少量漂浮棋子，右下角一颗大号
+**开始游戏**球（8 人局，金色呼吸描边），左下角贴边**退出游戏**球。对局结束
+（终局结算 / ESC / 关窗）回到主页而非退出程序，主页 ESC 或退出球才真正关闭。
+窗口图标取自 `assets/icon.ico`。
 
 ### 玩法二：AI 全自动观战
 
@@ -190,7 +195,7 @@ python launcher.py sim [--seed N] [--check|--bench N|--mirror N|--fullgame N] # 
 | `Tab`（战斗中） | 开关伤害统计面板：蓝/红两栏按伤害降序列出每枚棋子的伤害/承伤/治疗/施法 |
 | 点击 右侧血条 / 战况面板行 | 切换观察视角：选中谁就查看谁的棋盘与羁绊；左侧羁绊页只显示该玩家（默认自己）。未开战且看自己时不显示本回合对手信息 |
 | 按钮：开战 | 进入战斗回放 |
-| `ESC` | 战斗中：收起战斗单位详情（不退出）；部署期：自选台 → 自选栏 → 商店浮层 → 棋子详情 → 退出游戏 |
+| `ESC` | 战斗中：收起战斗单位详情（不退出）；部署期：自选台 → 自选栏 → 商店浮层 → 棋子详情 → **退回主页** |
 | `M` | 静音 / 恢复声音 |
 
 商店已从棋盘下方收进**金币球浮层**：点右下金币球弹出遮罩面板，内含整排商店卡 +
@@ -389,14 +394,14 @@ python tools/gen_audio.py bgm_battle      # 只重建指定文件
 ```
 tft_2d/
 ├─ launcher.py             # 统一启动器：gui / play / sim 一条命令入口
-├─ app.py                  # 图形界面入口（1v1 / 8 人局）
-├─ app_auto.py             # AI 全自动观战：所有玩家交给 AI，自动推进回合
+├─ app.py                  # 图形界面入口：无参数进游戏主页（选模式），--players 直达
+├─ app_auto.py             # AI 全自动观战：所有玩家交给 AI，自动推进回合；也被主页复用
 ├─ play.py                 # 命令行对局入口（纯 core）
 ├─ game_runner.py          # 命令行运营运行器：逐命令操作 + _game_state.pkl 存档
 ├─ mcp_server.py           # MCP Server：把整局游戏暴露成工具，供 AI Agent 游玩
 ├─ pyproject.toml          # 工程元数据：依赖 / 入口命令（pip install 后可用 tft2d 等）
 ├─ requirements.txt
-├─ start_gui.bat / start_gui_8p.bat / run.bat   # Windows 快捷启动（1v1 / 8 人局 / 菜单）
+├─ start_gui.bat / run.bat     # Windows 快捷启动（主页 / 菜单）
 ├─ core/                   # ── 核心规则层：纯 Python，零第三方依赖 ──
 │  ├─ game.py              #   单一真源驱动器：run_ai_ops / start_battle / finish_battle / advance_round
 │  ├─ combat.py            #   战斗内核：行动序列、寻路/普攻/技能/事件回放、特效结算与 AS_CAP
@@ -409,7 +414,8 @@ tft_2d/
 │  ├─ stats.py / rng.py    #   属性计算（compute_stats）/ 可复现随机
 │  └─ ai.py                #   AI 运营（买/卖/升星/穿装，按人口上阵）
 ├─ render/                 # ── 图形界面层（pygame-ce）──
-│  ├─ app.py               #   App 骨架：主循环、战斗回放状态机、draw() 编排
+│  ├─ app.py               #   App 骨架：主循环、战斗回放状态机、draw() 编排（结束回主页不退出）
+│  ├─ home.py              #   游戏主页 HomeView：标题 / 开始球 / 退出球 / 漂浮棋子背景
 │  ├─ app_state.py         #   部署期交互：观察视角 / 事件分发 / 拖拽 / 买卖 / 自选台（F2）
 │  ├─ app_draw.py          #   全部绘制编排：HUD/棋盘/悬停层/特效/结算/战况面板/阵容羁绊
 │  ├─ theme.py             #   布局/配色/字体主题（蜂窝棋盘尺寸与 2.5D 透视参数在此推导）
@@ -436,7 +442,8 @@ tft_2d/
 │  ├─ audio/               #   程序化生成的 BGM / 音效 WAV（tools/gen_audio.py 重建）
 │  ├─ items/               #   装备贴图：base/ 散件、combine/ 成装、special/ 特殊工具
 │  ├─ traits/              #   羁绊图标：<羁绊id>.png
-│  └─ units/               #   棋子贴图：<tid>.png（tools/fetch_s18_avatars.py 下载官方头像）
+│  ├─ units/               #   棋子贴图：<tid>.png（tools/fetch_s18_avatars.py 下载官方头像）
+│  └─ icon.ico             #   窗口图标（主页与对局窗口共用）
 ├─ tests/                  # pytest 回归：数据完整性 / 驱动器确定性 / 内核不变量 /
 │                          #   数值模型 / 人口与羁绊规则 / 装备贴图 / GUI 冒烟
 └─ tools/

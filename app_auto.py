@@ -5,6 +5,9 @@
     python app_auto.py --players 8     # 8 人局 AI 观战
     python app_auto.py --seed 7        # 指定种子（可复现）
     python app_auto.py --speed 2.0     # 加速（每回合结算后停留时间，默认 1.5 秒）
+
+作为模块被 app.py 复用时（主页“AI 观战”入口）：对局结束只停本循环，
+由外层菜单循环决定回到主页还是退出。
 """
 from __future__ import annotations
 
@@ -109,12 +112,15 @@ def main(argv: list[str] | None = None) -> None:
 
     game = Game(seed=args.seed, num_players=num_players)
     game.begin_round()
-    AutoApp(
-        game,
-        log_to_console=not args.no_log,
-        scale=args.scale,
-        result_delay=args.speed,
-    ).run()
+    try:
+        AutoApp(
+            game,
+            log_to_console=not args.no_log,
+            scale=args.scale,
+            result_delay=args.speed,
+        ).run()
+    finally:
+        pygame.quit()
 
 
 if __name__ == "__main__":

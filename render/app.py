@@ -58,8 +58,9 @@ class App(AppDrawMixin, AppStateMixin):
             pass
         pygame.init()
 
-        info = pygame.display.Info()
-        picked = scale if scale else theme.auto_scale(info.current_w, info.current_h)
+        # 不自动放大：默认固定 1x（1280x800）窗口，避免高分屏上窗口铺满整屏；
+        # 想要大窗口需显式传 --scale 2。
+        picked = scale if scale else 1
         self.scale = theme.set_scale(picked)
         if scale and self.scale != scale:
             print(f"[提示] 缩放被限制为 {self.scale}x（支持 {theme.MIN_SCALE}~{theme.MAX_SCALE}）")
@@ -67,12 +68,14 @@ class App(AppDrawMixin, AppStateMixin):
 
         _clear_caches()
         pygame.display.set_caption(f"自走棋 1v1  ({theme.WINDOW_W}x{theme.WINDOW_H})")
+        self._set_window_icon()
         self.screen = pygame.display.set_mode((theme.WINDOW_W, theme.WINDOW_H))
         self.clock = pygame.time.Clock()
         self.game = game
         self.log_to_console = log_to_console
 
         self.running = True
+        self._esc_quit = False  # True = ESC/关窗中途退出（vs 终局自然结束）
         self.phase = self.PHASE_DEPLOY
         self.message = ""
         self.result_title = ""
@@ -114,6 +117,17 @@ class App(AppDrawMixin, AppStateMixin):
 
         self._init_buttons()
 
+    def _set_window_icon(self) -> None:
+        """窗口图标：assets/icon.ico（存在才设置，缺失静默跳过）。"""
+        from pathlib import Path
+
+        icon = Path(__file__).resolve().parent.parent / "assets" / "icon.ico"
+        if icon.is_file():
+            try:
+                pygame.display.set_icon(pygame.image.load(str(icon)))
+            except pygame.error:
+                pass
+
     def _init_buttons(self) -> None:
         # 右下角：开战按钮（刷新 / 购买经验 / 锁定已分别并入商店浮层与双球）
         self.btn_fight = Button(
@@ -124,6 +138,12 @@ class App(AppDrawMixin, AppStateMixin):
         )
 
     def run(self) -> None:
+        """跑一局。结束（胜利/淘汰/ESC）只停本循环并返回；pygame 生命周期交给外层。
+
+        返回值：True = 玩家中途退出（ESC / 关窗，外层菜单循环应回主页）；
+                False = 对局自然结束（终局结算后点“返回主页”）。
+                两者对菜单循环的语义相同，保留布尔仅供调试区分。
+        """
         while self.running:
             dt = self.clock.tick(theme.FPS) / 1000.0
             self.time += dt
@@ -136,7 +156,7 @@ class App(AppDrawMixin, AppStateMixin):
             self._update_held_xp(dt)
             self._update_fx(dt)
             self.draw()
-        pygame.quit()
+        return self._esc_quit
 
     def _update_held_xp(self, dt: float) -> None:
         """经验球长按连升：按住不放时按冷却连续买经验。"""
@@ -256,7 +276,7 @@ class App(AppDrawMixin, AppStateMixin):
 
         if self.phase == self.PHASE_OVER:
             self.result_lines.append(g.winner())
-            self.btn_next.label = "退出"
+            self.btn_next.label = "返回主页"
         else:
             self.btn_next.label = "下一回合"
         self.btn_next.rect.size = (theme.BTN_NEXT_W, theme.BTN_NEXT_H)
