@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import pygame
+
 DESIGN_W, DESIGN_H = 1280, 800
 MIN_SCALE, MAX_SCALE = 1, 2
 
@@ -351,6 +353,20 @@ def _layout(s: int) -> dict:
         "ANIM_MID": 0.45,
         "ANIM_SLOW": 0.9,
     }
+
+
+def create_display(fullscreen: bool = True):
+    """创建主显示 Surface。
+
+    默认全屏：用 ``FULLSCREEN | SCALED`` 把固定内部分辨率(1280x800)硬件缩放到整屏，
+    布局坐标无需改动，鼠标事件仍映射回内部分辨率。若当前驱动不支持
+    （如无头 dummy 驱动 / 远程桌面），自动回退为普通窗口，保证可用。
+    """
+    flags = pygame.FULLSCREEN | pygame.SCALED if fullscreen else 0
+    try:
+        return pygame.display.set_mode((WINDOW_W, WINDOW_H), flags)
+    except pygame.error:
+        return pygame.display.set_mode((WINDOW_W, WINDOW_H))
 
 
 def set_scale(scale: int) -> int:

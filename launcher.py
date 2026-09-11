@@ -1,7 +1,7 @@
 """统一启动入口：一个命令访问全部玩法与工具。
 
 用法（源码目录 / 安装后 `tft2d` 命令均可）：
-    python launcher.py gui                 # 图形界面（默认 1v1，可加 --players 8 / --seed / --scale）
+    python launcher.py gui                 # 图形界面（默认全屏；可加 --players 8 / --seed / --scale / --windowed）
     python launcher.py play --seed 7       # 命令行 1v1（纯 core，无 pygame 依赖）
     python launcher.py play --auto         # 双方 AI 全自动跑完整局
     python launcher.py sim --check         # 校验 data/*.json 数据完整性

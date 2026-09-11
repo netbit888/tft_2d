@@ -33,7 +33,7 @@ HOME_BALL_R = 66  # * theme.S
 class HomeView:
     """主页：返回 MODE_START 或 ACTION_QUIT；窗口尺寸与 App 一致。"""
 
-    def __init__(self, scale: int | None = None, seed: int | None = None) -> None:
+    def __init__(self, scale: int | None = None, seed: int | None = None, fullscreen: bool = True) -> None:
         enable_dpi_awareness()
         try:
             pygame.mixer.pre_init(22050, -16, 2, 512)
@@ -42,12 +42,14 @@ class HomeView:
         pygame.init()
         self._set_window_icon()
 
-        # 不自动放大：默认固定 1x（1280x800）窗口；大窗口需显式传 --scale 2
+        # 默认全屏：FULLSCREEN | SCALED 把固定内部分辨率(1280x800)缩放到整屏；
+        # 普通窗口传 fullscreen=False（命令行 --windowed）。
+        self.fullscreen = fullscreen
         picked = scale if scale else 1
         self.scale = theme.set_scale(picked)
         _clear_caches()
         pygame.display.set_caption(f"TFT 2D GAME  ({theme.WINDOW_W}x{theme.WINDOW_H})")
-        self.screen = pygame.display.set_mode((theme.WINDOW_W, theme.WINDOW_H))
+        self.screen = theme.create_display(self.fullscreen)
         self.clock = pygame.time.Clock()
         self.time = 0.0
 

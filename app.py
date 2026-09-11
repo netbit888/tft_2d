@@ -17,11 +17,11 @@ from render.app import App  # noqa: E402
 from render.home import ACTION_QUIT, MODE_START, HomeView  # noqa: E402
 
 
-def _run_one(num_players: int, seed: int | None, scale: int | None, log: bool) -> None:
+def _run_one(num_players: int, seed: int | None, scale: int | None, log: bool, fullscreen: bool = True) -> None:
     """跑一局；结束（终局结算/ESC）即返回，pygame 生命周期交给外层。"""
     game = Game(seed=seed, num_players=num_players)
     game.begin_round()
-    App(game, log_to_console=log, scale=scale).run()
+    App(game, log_to_console=log, scale=scale, fullscreen=fullscreen).run()
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -32,7 +32,7 @@ def main(argv: list[str] | None = None) -> None:
         "--scale",
         type=int,
         default=None,
-        help="界面缩放因子（1=1280x800，2=2560x1600），不传默认 1x 小窗",
+        help="界面缩放因子（1=1280x800，2=2560x1600），不传默认 1x；分辨率靠全屏硬件缩放",
     )
     ap.add_argument(
         "--players",
@@ -40,23 +40,29 @@ def main(argv: list[str] | None = None) -> None:
         default=None,
         help="直达模式：1=1v1 对战，8=8 人局；不传则进入游戏主页（开始游戏=8 人局）",
     )
+    ap.add_argument(
+        "--windowed",
+        action="store_true",
+        help="用普通窗口而非默认全屏",
+    )
     args = ap.parse_args(argv)
     log = not args.no_log
+    fullscreen = not args.windowed
 
     try:
         if args.players is not None:
             # 脚本/测试兼容：带 --players 直达对应模式，结束即退出程序
-            _run_one(8 if args.players == 8 else 1, args.seed, args.scale, log)
+            _run_one(8 if args.players == 8 else 1, args.seed, args.scale, log, fullscreen)
             return
 
         # 无参数：主页 → 8 人局 → 回主页 循环
         while True:
-            home = HomeView(scale=args.scale, seed=args.seed)
+            home = HomeView(scale=args.scale, seed=args.seed, fullscreen=fullscreen)
             action = home.run()
             if action in (ACTION_QUIT, None):
                 break
             if action == MODE_START:
-                _run_one(8, args.seed, args.scale, log)
+                _run_one(8, args.seed, args.scale, log, fullscreen)
     finally:
         import pygame
 

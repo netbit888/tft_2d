@@ -48,7 +48,7 @@ class App(AppDrawMixin, AppStateMixin):
 
     PHASE_OVER = "over"
 
-    def __init__(self, game, log_to_console: bool = True, scale: int | None = None) -> None:
+    def __init__(self, game, log_to_console: bool = True, scale: int | None = None, fullscreen: bool = True) -> None:
         # 必须在 pygame.init() 之前声明 DPI 感知，否则 2560x1600 会被系统再缩放糊掉
         enable_dpi_awareness()
         # 音频：用与 WAV 资源一致的采样率先设定 mixer（失败不影响启动）
@@ -58,18 +58,19 @@ class App(AppDrawMixin, AppStateMixin):
             pass
         pygame.init()
 
-        # 不自动放大：默认固定 1x（1280x800）窗口，避免高分屏上窗口铺满整屏；
-        # 想要大窗口需显式传 --scale 2。
+        # 默认全屏：FULLSCREEN | SCALED 把固定内部分辨率(1280x800)硬件缩放到整屏，
+        # 布局坐标无需改动；想用普通窗口传 fullscreen=False（或命令行 --windowed）。
+        self.fullscreen = fullscreen
         picked = scale if scale else 1
         self.scale = theme.set_scale(picked)
         if scale and self.scale != scale:
             print(f"[提示] 缩放被限制为 {self.scale}x（支持 {theme.MIN_SCALE}~{theme.MAX_SCALE}）")
-        print(f"[界面] 缩放 {self.scale}x -> 窗口 {theme.WINDOW_W}x{theme.WINDOW_H}")
+        print(f"[界面] 缩放 {self.scale}x -> {'全屏' if self.fullscreen else '窗口'} {theme.WINDOW_W}x{theme.WINDOW_H}")
 
         _clear_caches()
         pygame.display.set_caption(f"自走棋 1v1  ({theme.WINDOW_W}x{theme.WINDOW_H})")
         self._set_window_icon()
-        self.screen = pygame.display.set_mode((theme.WINDOW_W, theme.WINDOW_H))
+        self.screen = theme.create_display(self.fullscreen)
         self.clock = pygame.time.Clock()
         self.game = game
         self.log_to_console = log_to_console

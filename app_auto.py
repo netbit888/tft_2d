@@ -33,8 +33,9 @@ class AutoApp(App):
         log_to_console: bool = True,
         scale: int | None = None,
         result_delay: float = 1.5,
+        fullscreen: bool = True,
     ) -> None:
-        super().__init__(game, log_to_console=log_to_console, scale=scale)
+        super().__init__(game, log_to_console=log_to_console, scale=scale, fullscreen=fullscreen)
         pygame.display.set_caption(f"自走棋 AI 观战  ({theme.WINDOW_W}x{theme.WINDOW_H})")
         self.result_delay = result_delay  # 结算画面停留秒数
         self._deploy_delay = 0.8  # 部署阶段停留秒数（让你看到 AI 买了什么）
@@ -93,6 +94,11 @@ def main(argv: list[str] | None = None) -> None:
         help="界面缩放因子（1=1280x800，2=2560x1600）",
     )
     ap.add_argument(
+        "--windowed",
+        action="store_true",
+        help="用普通窗口而非默认全屏",
+    )
+    ap.add_argument(
         "--players",
         type=int,
         default=1,
@@ -118,6 +124,7 @@ def main(argv: list[str] | None = None) -> None:
             log_to_console=not args.no_log,
             scale=args.scale,
             result_delay=args.speed,
+            fullscreen=not args.windowed,
         ).run()
     finally:
         pygame.quit()
