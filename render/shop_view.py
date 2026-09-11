@@ -16,7 +16,14 @@ from core.shop import REFRESH_COST
 
 from . import theme
 from .assets import text, text_size
-from .board_view import PieceVisual, draw_piece, shop_card_art, trait_tag, visual_from_tid
+from .board_view import (
+    PieceVisual,
+    draw_piece,
+    piece_feet_y,
+    shop_card_art,
+    trait_tag,
+    visual_from_tid,
+)
 from .item_art import draw_item_badge
 from .widgets import dim_overlay, panel
 
@@ -115,7 +122,7 @@ def _bench_equip_badges(surface: pygame.Surface, rect: pygame.Rect, equip: list)
     n = min(len(equip), 3)
     gap = max(10, int(12 * theme.S))
     start_x = rect.centerx - (n - 1) * gap // 2
-    y = rect.bottom - max(4, int(5 * theme.S))
+    y = piece_feet_y(rect) - max(4, int(5 * theme.S))
     for k in range(n):
         it = equip[k]
         cx = start_x + k * gap

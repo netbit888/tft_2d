@@ -26,7 +26,7 @@ from core.shop import buy, refresh_shop, sell_piece
 
 from . import theme
 from .armory_view import armory_geometry
-from .board_view import cell_at, cell_rect
+from .board_view import cell_at, cell_rect, piece_feet_y
 from .champ_view import champ_entries, champ_geometry
 from .hud_view import gold_ball_hit, xp_ball_hit
 from .item_view import item_slot_at
@@ -507,7 +507,7 @@ class AppStateMixin:
         n = min(n, 3)
         gap = max(10, int(12 * theme.S))
         start_x = rect.centerx - (n - 1) * gap // 2
-        y = rect.bottom - max(4, int(5 * theme.S))
+        y = piece_feet_y(rect) - max(4, int(5 * theme.S))
         half = max(8, int(8 * theme.S))
         for k in range(n):
             cx = start_x + k * gap

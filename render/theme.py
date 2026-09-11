@@ -69,13 +69,18 @@ def _layout(s: int) -> dict:
     trait_hex = 32 * s  # 羁绊六边形图标边长
 
     board_cols, board_rows = 7, 8
-    # 六边形（尖顶朝上）蜂窝棋盘：hex_r 是外接圆半径，行列间距按正六边形几何推导。
-    hex_r = 33 * s
+    # 六边形（尖顶朝上）蜂窝棋盘 + 2.5D 透视：
+    # 远端行（屏幕顶部，disp=0）缩到 persp_far、近端行（底部，disp=7）到 persp_near，
+    # 行距按缩放积分排布（近处行距大、远处行距小），横向向棋盘中轴收敛。
+    persp_far = 0.72
+    persp_near = 1.0
+    hex_r = 38 * s  # 原 33：透视后远端≈27、近端 38，整体占幅与原棋盘相当
     col_step = int(round(hex_r * 1.732))  # 横向邻格中心距 = sqrt(3) * r
     row_step = int(round(hex_r * 1.5))    # 相邻行中心距 = 1.5 * r
     cell = hex_r * 2                      # 棋子/动效仍按“格子”概念缩放
     board_w = board_cols * col_step + col_step  # 列跨距 + 错位/顶点留白
-    board_h = (board_rows - 1) * row_step + 2 * hex_r
+    # 透视后总高 = (far+near) * (hex_r + row_step * 行距数 / 2)，行距积分见 board_view._persp_row_y
+    board_h = int(round((persp_far + persp_near) * (hex_r + row_step * (board_rows - 1) / 2)))
     board_x = (win_w - board_w) // 2
     board_y = top_h + (board_area_h - board_h) // 2
 
@@ -224,6 +229,9 @@ def _layout(s: int) -> dict:
         "BOARD_Y": board_y,
         "TILE_INSET": 2 * s,  # 六边形地砖之间留的缝
         "PIECE_RATIO": 0.74,  # 头像直径 / 格子边长
+        "PERSP_FAR": persp_far,   # 远端行（屏幕顶部）透视缩放
+        "PERSP_NEAR": persp_near,  # 近端行（屏幕底部）透视缩放
+        "PIECE_LIFT": 0.14,  # 立式棋子上移量 / 头像边长（脚下留出阴影位）
         # ---------- 备战席 ----------
         "BENCH_SLOTS": bench_slots,
         "BENCH_CELL": bench_cell,

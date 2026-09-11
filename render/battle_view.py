@@ -20,7 +20,15 @@ from core.events import EV_ATTACK, EV_CAST, EV_DAMAGE, EV_DEATH, EV_HEAL
 
 from . import theme
 from .assets import font, text
-from .board_view import cell_at, draw_grid, draw_piece, hex_point, visual_from_unit
+from .board_view import (
+    cell_at,
+    cell_rect_at,
+    draw_grid,
+    draw_piece,
+    hex_point,
+    scale_at,
+    visual_from_unit,
+)
 from .info import battle_unit_records, draw_tip
 from .widgets import Button, panel
 
@@ -218,13 +226,14 @@ class BattleView:
             for u in self.combat.units:
                 if u.alive and u.cell == cell:
                     return u
-        best, best_d = None, (theme.CELL * 0.85) ** 2
+        best, best_d = None, 1e9
         for u in self.combat.units:
             if not u.alive:
                 continue
             px, py = board_pos(u.x, u.y)
+            thr = theme.CELL * 0.85 * scale_at(u.y)  # 命中半径随所在深度缩放
             d = (px - pos[0]) ** 2 + (py - pos[1]) ** 2
-            if d < best_d:
+            if d < min(best_d, thr * thr):
                 best, best_d = u, d
         return best
 
@@ -359,13 +368,14 @@ class BattleView:
                 sx += bump[1] * push
                 sy += bump[2] * push
 
-            rect = pygame.Rect(0, 0, theme.CELL, theme.CELL)
-            rect.center = (sx, sy)
+            rect = cell_rect_at(ix, iy)  # 尺寸随所在深度透视缩放
 
             if fade is not None:
                 k = fade / self.FADE_TIME  # 1 -> 0
-                rect = rect.inflate(-int(theme.CELL * 0.25 * (1 - k)), -int(theme.CELL * 0.25 * (1 - k)))
-                rect.y += int(theme.CELL * 0.22 * (1 - k))
+                cell_px = rect.width
+                shrink = int(cell_px * 0.25 * (1 - k))
+                rect = rect.inflate(-shrink, -shrink)
+                rect.y += int(cell_px * 0.22 * (1 - k))
                 draw_piece(surface, rect, visual_from_unit(u), alpha=0.15 + 0.55 * k)
                 continue
 
