@@ -20,6 +20,7 @@ from core.combat import effective_attack_speed
 from core.items import (
     combine_key,
     is_special_item,
+    item_desc,
     item_effect,
     item_name,
     item_stats,
@@ -278,11 +279,14 @@ _STAT_LABELS = {
     "hp_pct": "生命值",
     "ad_pct": "攻击力",
     "mana_flat": "所需法力",
+    "mana_regen": "法力回复",
+    "omnivamp": "全能吸血",
+    "dmg_reduce": "伤害减免",
     "crit_flat": "暴击率",
-    "damage_amp": "伤害",
+    "damage_amp": "伤害增幅",
 }
 
-# 装备特殊效果的设计文案（data/items.json 的 effect 字段）
+# 装备特殊效果文案（data/items.json 的 effect 字段；新成装对齐官方 equip.js）
 _EFFECT_TEXT = {
     "crit_damage": "特效：暴击伤害提高",
     "armor_pen": "特效：攻击无视目标部分护甲",
@@ -290,7 +294,7 @@ _EFFECT_TEXT = {
     "magic_resist": "特效：受到的魔法伤害降低",
     "aoe_cleave": "特效：普攻对目标周围敌人造成溅射伤害",
     "on_cast_buff": "特效：施放技能后普攻强化（+20% 基础攻击）",
-    "ramping_as": "特效：每次命中叠基础攻速 +6%，多把更快，无叠层上限（全局攻速上限 5/秒）",
+    "ramping_as": "特效：每秒叠基础攻速 +7%，无叠层上限（全局攻速上限 5/秒）",
     "thorns": "特效：受到攻击时反弹部分伤害",
     "multi_shot": "特效：普攻分裂攻击额外目标",
     "ap_amp": "特效：施法时基础法强提高（不吃羁绊/装备/大天使加成的法强）",
@@ -301,8 +305,38 @@ _EFFECT_TEXT = {
     "slow_aura": "特效：减缓周围敌人的速度",
     "regen": "特效：每秒回复少量生命",
     "spell_vamp": "特效：技能吸血（回复伤害的 25%）",
-    "giant_slayer": "特效：对高生命目标造成额外伤害",
+    "giant_slayer": "特效：对抗高生命目标额外增伤 15%",
     "ability_crit": "特效：技能可以暴击",
+    "stoneplate": "特效：每有一个敌人以你为目标，额外获得 10 护甲与 10 魔抗（被集火越狠越肉）",
+    # ---- 新成装（官方 equip.js）----
+    "hextech_gunblade": "特效：造成伤害时为生命值最低的友军回复 20% 伤害值",
+    "edge_of_night": "特效：生命值低于 40% 时短暂不可选取并治疗 15% 已损失生命（每场 1 次）",
+    "bloodthirster": "特效：生命值低于 50% 时获得 30% 最大生命护盾（5 秒，每场 1 次）",
+    "steraks_gage": "特效：生命值低于 60% 时获得 40% 最大生命护盾（4 秒，每场 1 次）",
+    "spear_of_shojin": "特效：每次普攻额外回复 5 法力",
+    "red_buff": "特效：伤害使目标灼烧（每秒 1% 最大生命真伤）并重伤（-33% 治疗）5 秒",
+    "titans_resolve": "特效：攻击或受伤叠 +2% 攻击/法强（至多 25 层）；满层 +10% 伤害增幅",
+    "kraken_slayer": "特效：每次攻击叠 +3.5% 攻击（至多 15 次）；满层 +15% 攻速",
+    "nashors_tooth": "特效：每次普攻额外回复 2 法力（暴击则 +4）",
+    "void_staff": "特效：伤害对目标施加 30% 魔抗击碎，持续 5 秒",
+    "last_whisper": "特效：伤害对目标施加 30% 护甲击碎，持续 3 秒",
+    "crown_guard": "特效：开局获得 25% 最大生命护盾（8 秒）；护盾到期后 +25% 法术加成",
+    "ionic_spark": "特效：2 格内敌人 30% 魔抗击碎",
+    "morellonomicon": "特效：伤害使目标灼烧（每秒 1% 最大生命真伤）并重伤（-33% 治疗）10 秒",
+    "archangels_staff": "特效：战斗中每 5 秒 +20% 法术加成",
+    "bramble_vest": "特效：使来自攻击的伤害 -5%；被命中对邻格敌人造成 100 魔法伤害（2 秒 CD）",
+    "sunfire_cape": "特效：每 2 秒使 2 格内一名敌人灼烧（每秒 1% 最大生命真伤）并重伤 10 秒",
+    "protectors_vow": "特效：开局 +20 法力；生命值低于 40% 时 +15 法力并获得 20% 最大生命护盾（每场 1 次）",
+    "steadfast_heart": "特效：+5% 伤害减免；生命值高于 50% 时为 15%",
+    "dragons_claw": "特效：每 2 秒回复 2.5% 最大生命",
+    "twilight_veil": "特效：2 格内敌人 30% 护甲削减；开局 15 秒自身 +15 护甲/魔抗",
+    "adaptive_helm": "特效：从所有来源 +15% 法力；坦克/战士 +30 护甲/魔抗，其他 +10% 攻击/法强",
+    "quicksilver": "特效：开局 18 秒控制免疫；每秒 +3% 可叠攻速",
+    "warmogs_armor": "特效：+18% 最大生命",
+    "spirit_visage": "特效：每秒回复 2% 已损失生命",
+    "chain_lash": "特效：暴击提供 +5% 伤害增幅（5 秒，至多 4 层）",
+    "blue_buff": "特效：从所有来源 +10% 攻击与法强",
+    "hand_of_justice": "特效：随机获得 +18% 攻击/法强（高血翻倍）或 +15% 全能吸血（低血翻倍）",
 }
 
 # 羁绊档位加成文案（与 core.traits.describe 同源）
@@ -335,7 +369,10 @@ def item_stat_text(key: str, value: float) -> str:
     """装备单条属性文案，负收益字段单独处理（mana_flat 是减蓝耗）。"""
     if key == "mana_flat":
         return f"-{value:g} {_STAT_LABELS[key]}"
-    if key in ("attack_speed_pct", "hp_pct", "ad_pct", "crit_flat"):
+    if key in (
+        "attack_speed_pct", "hp_pct", "ad_pct", "crit_flat",
+        "omnivamp", "dmg_reduce", "damage_amp",
+    ):
         return f"+{value * 100:.0f}% {_STAT_LABELS.get(key, key)}"
     return f"+{value:g} {_STAT_LABELS.get(key, key)}"
 
@@ -564,6 +601,9 @@ def item_records(item_id: str, have: dict[str, int] | None = None) -> list:
         records.append(
             (_EFFECT_TEXT.get(effect, f"特效：{effect}"), theme.FS_TINY, theme.GOLD)
         )
+    desc = item_desc(item_id)
+    if desc:
+        records.append((desc, theme.FS_MICRO, theme.TEXT_DIM))
 
     if not advanced and have:
         recipes = _achievable_recipes(item_id, have)
@@ -613,6 +653,9 @@ def combine_preview_records(a: str, b: str) -> list:
         records.append(
             (_EFFECT_TEXT.get(effect, f"特效：{effect}"), theme.FS_TINY, theme.GOLD)
         )
+    desc = item_desc(combined)
+    if desc:
+        records.append((desc, theme.FS_MICRO, theme.TEXT_DIM))
     return records
 
 

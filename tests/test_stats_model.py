@@ -2,7 +2,7 @@
 
 - 攻速随星级轻成长（AS_STAR_MULTIPLIER = 1.0 / 1.1 / 1.25），护甲/魔抗/法强不随星；
 - compute_stats 输出星级白板基础值（base_*，不含羁绊与装备），供“特效吃基础”使用；
-- 羊刀叠层 / 三相 / 帽子：加成只作用于佩戴者的星级白板基础值，
+- 羊刀叠层 / 三相 / ap_amp：加成只作用于佩戴者的星级白板基础值，
   不因装备、羁绊、大天使叠层等额外属性被放大。
 """
 
@@ -94,25 +94,25 @@ def test_build_team_writes_base_fields_into_unit():
 
 
 def test_ramping_as_stacks_on_base_attack_speed():
-    """羊刀叠层 = 基础攻速 × 叠层百分比，与装备攻速%加性叠加，不互相乘。"""
+    """羊刀（鬼索的狂暴之刃）叠层 = 基础攻速 × 叠层百分比，与装备攻速%加性叠加。"""
     tpl = load_units()[DART]
     base_as = tpl.attack_speed * AS_STAR_MULTIPLIER[3]
     u = build_team(
-        [{"id": DART, "star": 3, "pos": [0, 0], "equip": [ItemInstance("bow+bow")]}],
+        [{"id": DART, "star": 3, "pos": [0, 0], "equip": [ItemInstance("bow+wand")]}],
         "blue",
     )[0]
-    # 3 星基础攻速 = 官方基础攻速 × 1.25；羊刀自带 +30% → 面板 ×1.3
+    # 3 星基础攻速 = 官方基础攻速 × 1.25；鬼索自带 +10% 攻速 → 面板 ×1.10
     assert u.base_attack_speed == pytest.approx(base_as)
-    assert u.attack_speed == pytest.approx(base_as * 1.3)
-    u.as_stack = 0.30  # 相当于 5 次命中（每次 +6%）
-    # 加性：面板 + 基础×0.30；若乘性则会是 (×1.3)×(×1.3)，更高
-    assert effective_attack_speed(u) == pytest.approx(base_as * 1.6)
+    assert u.attack_speed == pytest.approx(base_as * 1.10)
+    u.as_stack = 0.30  # 手动注入叠层（相对基础攻速的加性百分比）
+    # 加性：面板 + 基础×0.30；若乘性则会是 (×1.10)×(×1.30)，更高
+    assert effective_attack_speed(u) == pytest.approx(base_as * 1.40)
 
 
 def test_ramping_as_respects_global_cap():
     """羊刀叠层再多也被全局攻速上限 AS_CAP 封顶。"""
     u = build_team(
-        [{"id": DART, "star": 3, "pos": [0, 0], "equip": [ItemInstance("bow+bow")]}],
+        [{"id": DART, "star": 3, "pos": [0, 0], "equip": [ItemInstance("bow+wand")]}],
         "blue",
     )[0]
     u.as_stack = 99.0
@@ -137,7 +137,7 @@ def test_three_force_buff_scales_with_base_ad_only():
     target_tpl = load_units()["s18_ornn"]
     stone = load_units()["s18_camille"]
     base_ad = stone.ad  # 佩戴者 1 星基础攻击（官方同步值）
-    equip_ad_flat = 10  # 三相自带 +10 攻击
+    equip_ad_flat = 15  # 朔极之矛（sword+tear）自带 +15 攻击
 
     def run(three_active: bool):
         c, atk, tgt = _single_duel(
@@ -152,7 +152,7 @@ def test_three_force_buff_scales_with_base_ad_only():
         assert len(_physical_damage(c)) == 1
         return c, _physical_damage(c)[0]
 
-    # 面板攻击 = 基础 + 三相 10；强化增量 = 基础攻击 × 20%（不吃装备额外 AD）
+    # 面板攻击 = 基础 + 装备 15；强化增量 = 基础攻击 × 20%（不吃装备额外 AD）
     c, dmg_active = run(True)
     expected_raw = base_ad + equip_ad_flat + base_ad * ON_CAST_AD
     expected = expected_raw * 100.0 / (100.0 + target_tpl.armor)
@@ -164,16 +164,21 @@ def test_three_force_buff_scales_with_base_ad_only():
     assert old_dmg > expected + 1.0
 
 
-# ---------- 帽子：只放大基础法强 ----------
+# ---------- ap_amp：只放大基础法强（当前成装已无此特效，直接注入关键字覆盖机制）----------
 
 
-def test_deathcap_only_amplifies_base_ap():
-    """帽子施法增益只乘基础法强：装备给的 +20 法强不被帽子放大。"""
-    # wisp：基础法强 15；帽子 ap_flat +20 → 面板法强 35
+def test_ap_amp_only_amplifies_base_ap():
+    """ap_amp 施法增益只乘基础法强：装备给的额外法强不被放大。
+
+    注：官方「班克斯的魔法帽」为纯数值无被动，当前成装无人挂 ap_amp；这里注入关键字
+    单独覆盖该通用机制。
+    """
     c, atk, tgt = _single_duel(
-        {"id": WISP, "star": 1, "pos": [0, 0], "equip": [ItemInstance("wand+wand")]},
+        {"id": WISP, "star": 1, "pos": [0, 0], "equip": [ItemInstance("wand+chain")]},
         {"id": "s18_ornn", "star": 1, "pos": [5, 5]},
+        mutate=lambda b, r: setattr(b[0], "effects", b[0].effects | {"ap_amp"}),
     )
+    # wisp：基础法强 15；冕卫(wand+chain) ap_flat +20 → 面板法强 35
     assert atk.ap == pytest.approx(15 + 20)
     c._cast(atk, tgt)
     magic = _magic_damage(c)
@@ -186,24 +191,25 @@ def test_deathcap_only_amplifies_base_ap():
     expected = power * 100.0 / (100.0 + load_units()["s18_ornn"].magic_resist)
     assert magic[-1] == pytest.approx(expected)
 
-    # 旧式“整面板 ×1.35”会明显更大：验证帽子没吃装备法强
+    # 旧式“整面板 ×1.35”会明显更大：验证 ap_amp 没吃装备法强
     old_power = (ab.value + atk.ap * ab.ratio) * 1.35
     assert magic[-1] < old_power * 100.0 / (100.0 + load_units()["s18_ornn"].magic_resist) - 1.0
 
 
-def test_deathcap_has_no_effect_without_base_ap():
-    """基础法强为 0 的物理棋子戴帽子：没有额外法强增益，只吃到 ap_flat。"""
+def test_ap_amp_has_no_effect_without_base_ap():
+    """基础法强为 0 的物理棋子：ap_amp 不放大任何东西，只吃到 ap_flat。"""
     rogue = load_units()["s18_xayah"]  # 无 ap 字段 → 基础法强 0
     assert rogue.ap == 0.0
     c, atk, tgt = _single_duel(
-        {"id": "s18_xayah", "star": 1, "pos": [0, 0], "equip": [ItemInstance("wand+wand")]},
+        {"id": "s18_xayah", "star": 1, "pos": [0, 0], "equip": [ItemInstance("wand+chain")]},
         {"id": "s18_ornn", "star": 1, "pos": [5, 5]},
+        mutate=lambda b, r: setattr(b[0], "effects", b[0].effects | {"ap_amp"}),
     )
     assert atk.base_ap == 0.0 and atk.ap == pytest.approx(20.0)
     c._cast(atk, tgt)
     magic = _magic_damage(c)
     assert magic, "技能应能施放"
-    # 无基础法强 → 帽子不放大任何东西：有效法强 = 装备 ap_flat 20
+    # 无基础法强 → ap_amp 不放大任何东西：有效法强 = 装备 ap_flat 20
     ab = rogue.ability
     expected = ab.value + 20.0 * ab.ratio
     expected = expected * 100.0 / (100.0 + load_units()["s18_ornn"].magic_resist)

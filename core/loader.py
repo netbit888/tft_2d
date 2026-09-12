@@ -115,11 +115,17 @@ def build_team(placements: list[dict], team: str) -> list[Unit]:
         u.attack_speed = s["attack_speed"]
         u.crit_chance = s["crit_chance"]
         u.damage_amp = s["damage_amp"]
+        u.mana_regen = s.get("mana_regen", 0.0)
+        u.omnivamp = s.get("omnivamp", 0.0)
+        u.dmg_reduce = s.get("dmg_reduce", 0.0)
         # 星级白板基础值（不含羁绊/装备）：供羊刀/三相/帽子等“特效吃基础”的装备引用
         u.base_max_hp = s["base_max_hp"]
         u.base_ad = s["base_ad"]
         u.base_ap = s["base_ap"]
         u.base_attack_speed = s["base_attack_speed"]
+        # 基础双抗（不含石板甲按集火敌人数动态叠加的部分），供 combat 层实时加算
+        u.base_armor = s["armor"]
+        u.base_magic_resist = s["magic_resist"]
         # 眼泪系装备：加法加蓝量（之前误写成减法，导致扣蓝），
         # 并让棋子开局即带这部分蓝，使其更快放技能（与 TFT 泪水系一致）。
         mana_flat = item_mods.get("mana_flat", 0.0)

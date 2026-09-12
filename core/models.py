@@ -77,6 +77,9 @@ class Unit:
     base_ad: float = 0.0
     base_ap: float = 0.0
     base_attack_speed: float = 0.0
+    # 基础双抗（不含装备动态叠加部分）：石像鬼石板甲等"按被锁定敌人数实时加算"的特效以此为基准
+    base_armor: float = 0.0
+    base_magic_resist: float = 0.0
     attack_range: int = 1
     move_speed: float = 0.0
     max_mana: float = 0.0
@@ -109,6 +112,16 @@ class Unit:
     burn_src: int = 0      # 燃烧施加者 uid
     gw_t: float = 0.0      # 重伤剩余秒数，期间受治疗/吸血减半
     revived: bool = False  # 守护天使是否已消耗
+    # --- 成装特效运行期状态（Combat 读写；构建时为默认值）---
+    shield: float = 0.0          # 当前护盾值（先于生命扣除）
+    shield_t: float = -1.0       # 护盾剩余秒数（<0 表示无到期）
+    mana_regen: float = 0.0      # 每秒额外回复法力（属性）
+    omnivamp: float = 0.0        # 全能吸血比例（属性，普攻+技能通用）
+    dmg_reduce: float = 0.0      # 伤害减免比例（属性）
+    armor_shred_t: float = 0.0   # 自身护甲被削减的剩余秒数
+    mr_shred_t: float = 0.0      # 自身魔抗被削减的剩余秒数
+    untargetable_t: float = 0.0  # 不可选取剩余秒数（夜之锋刃）
+    efx: dict = field(default_factory=dict)  # 其余特效状态：叠层/冷却/一次性标记
 
     @property
     def pos(self) -> tuple[float, float]:

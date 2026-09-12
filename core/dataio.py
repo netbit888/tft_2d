@@ -31,15 +31,27 @@ ALLOWED_STAT_KEYS = {
     "crit_flat",
     "damage_amp",
     "mana_flat",
+    "mana_regen",  # 每秒额外法力回复
+    "omnivamp",    # 全能吸血（攻击+技能通用）
+    "dmg_reduce",  # 伤害减免
 }
 
 # core/combat 实际会消费的装备 effect 关键字
 SUPPORTED_EFFECTS = {
     "none",
+    # 旧关键字（神器/历史沿用）
     "crit_damage", "armor_pen", "lifesteal", "magic_resist", "aoe_cleave",
     "on_cast_buff", "ramping_as", "thorns", "multi_shot", "ap_amp",
     "grievous_wounds", "mana_ap", "revive", "burn", "slow_aura",
-    "regen", "spell_vamp", "giant_slayer", "ability_crit",
+    "regen", "spell_vamp", "giant_slayer", "ability_crit", "stoneplate",
+    # 成装各具名特效（对齐官方 equip.js）
+    "hextech_gunblade", "edge_of_night", "bloodthirster", "steraks_gage",
+    "spear_of_shojin", "red_buff", "titans_resolve", "kraken_slayer",
+    "nashors_tooth", "void_staff", "last_whisper", "crown_guard",
+    "ionic_spark", "morellonomicon", "archangels_staff", "bramble_vest",
+    "sunfire_cape", "protectors_vow", "steadfast_heart", "dragons_claw",
+    "twilight_veil", "adaptive_helm", "quicksilver", "warmogs_armor",
+    "spirit_visage", "chain_lash", "blue_buff", "hand_of_justice",
 }
 
 

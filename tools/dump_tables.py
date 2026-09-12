@@ -52,7 +52,10 @@ _STAT_LABEL = {
     "attack_speed_pct": "攻速",
     "crit_flat": "暴击率",
     "mana_flat": "蓝量",
-    "damage_amp": "伤害",
+    "mana_regen": "法力回复",
+    "omnivamp": "全能吸血",
+    "dmg_reduce": "伤害减免",
+    "damage_amp": "伤害增幅",
 }
 
 # 成装特殊效果 => 说明。具体生效数值见附录 C 的 core/combat.py 常量。
@@ -63,19 +66,48 @@ _EFFECT_NOTES = {
     "magic_resist": "受到的魔法伤害降低",
     "aoe_cleave": "普攻对目标邻格溅射",
     "on_cast_buff": "施法后强化普攻（三相之力）",
-    "ramping_as": "每次命中叠攻速（羊刀）",
+    "ramping_as": "每秒叠基础攻速（鬼索的狂暴之刃）",
     "multi_shot": "普攻追加攻击另一敌人（分裂弓）",
     "thorns": "被普攻命中反弹伤害",
-    "ap_amp": "施法时法强按比例提高（帽子）",
+    "ap_amp": "施法时法强按比例提高",
     "grievous_wounds": "命中给目标挂重伤，削减治疗/吸血",
     "mana_ap": "每次施法永久叠法强（大天使）",
     "revive": "首次阵亡复活并回复生命（守护天使）",
     "burn": "命中使目标持续燃烧",
     "slow_aura": "光环减速周围敌人攻速（冰心）",
-    "regen": "每秒回复最大生命（狂徒）",
+    "regen": "每秒回复生命",
     "spell_vamp": "技能伤害吸血（科技枪）",
-    "giant_slayer": "对高生命目标额外增伤（巨人杀手）",
-    "ability_crit": "技能可暴击（珠光护手）",
+    "giant_slayer": "对抗高生命目标额外增伤（巨人捕手）",
+    "ability_crit": "技能可暴击（无尽之刃/珠光护手）",
+    # ---- 新成装（官方 equip.js）----
+    "hextech_gunblade": "造成伤害时为最低血友军治疗 20% 伤害值（海克斯科技枪刃）",
+    "edge_of_night": "生命值<40% 时短暂不可选取并治疗 15% 已损失生命（夜之锋刃，每场 1 次）",
+    "bloodthirster": "生命值<50% 时获得 30% 最大生命护盾 5 秒（汲取剑，每场 1 次）",
+    "steraks_gage": "生命值<60% 时获得 40% 最大生命护盾 4 秒（斯特拉克的挑战护手，每场 1 次）",
+    "spear_of_shojin": "每次普攻额外回复 5 法力（朔极之矛）",
+    "red_buff": "伤害使目标灼烧+重伤 5 秒（红霸符）",
+    "titans_resolve": "攻击/受伤叠 +2% 攻击与法强（至多 25 层）；满层 +10% 增伤（泰坦的坚决）",
+    "kraken_slayer": "每次攻击叠 +3.5% 攻击（至多 15 次）；满层 +15% 攻速（海妖之怒）",
+    "nashors_tooth": "每次普攻额外回复 2 法力（暴击 +4）（纳什之牙）",
+    "void_staff": "伤害施加 30% 魔抗击碎 5 秒（虚空之杖）",
+    "last_whisper": "伤害施加 30% 护甲击碎 3 秒（最后的轻语）",
+    "crown_guard": "开局 25% 最大生命护盾 8 秒；到期 +25% 法强（冕卫）",
+    "ionic_spark": "2 格内敌人 30% 魔抗击碎（离子火花）",
+    "morellonomicon": "伤害使目标灼烧+重伤 10 秒（莫雷洛秘典）",
+    "archangels_staff": "战斗中每 5 秒 +20% 法术加成（大天使之杖）",
+    "bramble_vest": "受攻击伤害 -5%；被命中对邻格 100 魔法伤害（2 秒 CD）（棘刺背心）",
+    "sunfire_cape": "每 2 秒灼烧 2 格内一名敌人（灼烧+重伤 10 秒）（日炎斗篷）",
+    "protectors_vow": "开局 +20 法力；生命值<40% 时 +15 法力与 20% 最大生命护盾（圣盾使的誓约）",
+    "steadfast_heart": "+5% 伤害减免（>50% 生命时为 15%）（坚定之心）",
+    "dragons_claw": "每 2 秒回复 2.5% 最大生命（巨龙之爪）",
+    "twilight_veil": "2 格内敌人 30% 护甲削减；开局 15 秒自身 +15 护甲/魔抗（薄暮法袍）",
+    "adaptive_helm": "从所有来源 +15% 法力；坦克/战士 +30 护甲/魔抗，其他 +10% 攻击/法强（适应性头盔）",
+    "quicksilver": "开局 18 秒控制免疫；每秒 +3% 可叠攻速（水银）",
+    "warmogs_armor": "+18% 最大生命（狂徒铠甲）",
+    "spirit_visage": "每秒回复 2% 已损失生命（振奋盔甲）",
+    "chain_lash": "暴击提供 +5% 增伤（5 秒，至多 4 层）（强袭者的链枷）",
+    "blue_buff": "从所有来源 +10% 攻击与法强（蓝霸符）",
+    "hand_of_justice": "随机 +18% 攻击/法强（高血翻倍）或 +15% 全能吸血（低血翻倍）（正义之手）",
 }
 
 _AB_TYPE = {"nuke": "单体", "aoe": "范围", "heal": "治疗"}
@@ -84,7 +116,9 @@ _AB_TYPE = {"nuke": "单体", "aoe": "范围", "heal": "治疗"}
 def fmt_stat(key: str, value: float) -> str:
     """单个属性键值 -> 中文文本，如 ad_flat:10 -> "+10 攻击力"。
     _pct / crit_flat / damage_amp 在 json 里都是 0~1 的比例，按百分比显示。"""
-    if key == "crit_flat" or key.endswith("_pct") or key == "damage_amp":
+    if key == "crit_flat" or key.endswith("_pct") or key in (
+        "damage_amp", "omnivamp", "dmg_reduce"
+    ):
         return f"+{value * 100:g}% {_STAT_LABEL.get(key, key)}"
     return f"+{value:g} {_STAT_LABEL.get(key, key)}"
 
@@ -334,23 +368,37 @@ def appendix_code_constants() -> str:
     # 装备特效数值参数
     headers = ["装备特效常量（combat.py 顶部）", "当前值", "含义"]
     effect_rows = [
-        ("CRIT_DMG_BONUS", 0.25, "crit_damage 无尽：暴击 1.5→1.75"),
-        ("ARMOR_PEN_PCT", 0.30, "破甲弓：无视 30% 护甲"),
-        ("MAGIC_RESIST_PCT", 0.30, "龙牙：受到的魔法伤害 -30%"),
-        ("LIFESTEAL_PCT", 0.25, "饮血：普攻吸血 25%"),
-        ("SPELL_VAMP_PCT", 0.25, "科技枪：技能吸血 25%"),
-        ("CLEAVE_PCT", 0.50, "九头蛇：溅射 50% 伤害"),
-        ("THORNS_PCT", 0.20, "反甲/荆棘：反弹 20%"),
-        ("MULTI_SHOT_PCT", 0.40, "分裂弓：副目标 40% 伤害"),
-        ("GW_DUR / GW_REDUCE", "6.0 / 0.50", "重伤持续 6 秒，治疗/吸血 -50%"),
-        ("BURN_DUR / BURN_AD_PCT", "3.0 / 0.15", "日炎：燃烧 3 秒，秒伤=攻击×15%"),
-        ("REGEN_PCT", 0.02, "狂徒：每秒回最大生命 2%"),
-        ("REVIVE_HP_PCT", 0.50, "守护天使：复活回 50% 血"),
-        ("RAMP_STEP", "0.06", "羊刀：每次命中叠 +6% 攻速（加在基础攻速上，无叠层上限，实际攻速由 AS_CAP 封顶）"),
-        ("ON_CAST_AD / ON_CAST_DUR", "0.20 / 6.0", "三相：施法后 6 秒普攻 +20%（吃佩戴者基础攻击）"),
-        ("MANA_AP_STEP", 15.0, "大天使：每次施法永久 +15 法强"),
-        ("GIANT_SLAYER_RATIO / GIANT_SLAYER_PCT", "1.5 / 0.25", "巨人杀手：目标生命≥自身 1.5 倍时增伤 25%"),
-        ("AP_AMP_PCT", 0.35, "帽子：施法时仅基础法强 +35%（不吃羁绊/装备/大天使的法强）"),
+        ("STONEPLATE_PER", 10, "石像鬼石板甲：每被一个敌人锁定，护甲/魔抗 +10"),
+        ("GW_REDUCE", 0.33, "重伤：治疗/吸血 -33%"),
+        ("BURN_PCT", 0.01, "灼烧：每秒 = 目标最大生命 1%（真实伤害）"),
+        ("SHRED_PCT", 0.30, "护甲/魔抗击碎：抗性 -30%"),
+        ("OMNIVAMP_ALLY_PCT", 0.20, "海克斯科技枪刃：为最低血友军治疗 20% 伤害"),
+        ("SHOJIN_MANA / NASHORS_MANA / NASHORS_MANA_CRIT", "5 / 2 / 4", "朔极之矛/纳什之牙：普攻附加法力"),
+        ("EON_HP_PCT / EON_UNTAUNT / EON_HEAL_MISSING", "0.40 / 1.0 / 0.15", "夜之锋刃：40% 血 → 不可选取 1 秒 + 治疗 15% 已损失生命"),
+        ("BT_HP_PCT / BT_SHIELD_PCT / BT_SHIELD_DUR", "0.50 / 0.30 / 5.0", "汲取剑：50% 血 → 30% 最大生命护盾 5 秒"),
+        ("STK_HP_PCT / STK_SHIELD_PCT / STK_SHIELD_DUR", "0.60 / 0.40 / 4.0", "斯特拉克：60% 血 → 40% 最大生命护盾 4 秒"),
+        ("RB_BURN_DUR / MORELLO_BURN_DUR / SUNFIRE_BURN_DUR", "5 / 10 / 10", "红霸符/莫雷洛/日炎 灼烧·重伤持续秒数"),
+        ("SUNFIRE_INTERVAL / SUNFIRE_RANGE", "2.0 / 2", "日炎：每 2 秒灼烧 2 格内一名敌人"),
+        ("SV_REGEN_MISSING", 0.02, "振奋盔甲：每秒回复 2% 已损失生命"),
+        ("DC_INTERVAL / DC_REGEN_PCT", "2.0 / 0.025", "巨龙之爪：每 2 秒回 2.5% 最大生命"),
+        ("BRAMBLE_REFLECT / BRAMBLE_CD / BRAMBLE_ATK_REDUCE", "100 / 2.0 / 0.05", "棘刺背心：被击对邻格 100 魔法伤害（2s CD），攻击伤害 -5%"),
+        ("SH_BASE_DR / SH_HIGH_DR", "0.05 / 0.15", "坚定之心：+5% 减伤，>50% 生命时 15%"),
+        ("CG_SHIELD_PCT / CG_AP_AFTER", "0.25 / 0.25", "冕卫：开局 25% 生命护盾 8 秒，到期 +25% 法强"),
+        ("PV_START_MANA / PV_MANA / PV_SHIELD_PCT", "20 / 15 / 0.20", "圣盾使的誓约：开局 +20 法力；40% 血 +15 法力 +20% 生命护盾"),
+        ("ARCH_INTERVAL / ARCH_AP_PCT", "5.0 / 0.20", "大天使之杖：每 5 秒 +20% 法术加成"),
+        ("TITANS_STEP / TITANS_MAX / TITANS_FULL_AMP", "0.02 / 25 / 0.10", "泰坦：每层 +2% AD/AP，满层 +10% 增伤"),
+        ("KRAKEN_STEP / KRAKEN_MAX / KRAKEN_AS", "0.035 / 15 / 0.15", "海妖之怒：每次攻击 +3.5% AD（15 次），满层 +15% 攻速"),
+        ("QS_AS_PER_SEC / QS_CC_IMMUNE", "0.03 / 18", "水银：每秒 +3% 攻速；开局 18 秒控免"),
+        ("RAMP_PER_SEC", 0.07, "鬼索：每秒 +7% 可叠攻速"),
+        ("LASH_STEP / LASH_MAX / LASH_DUR", "0.05 / 4 / 5.0", "强袭者：暴击 +5% 增伤（5s，至多 4 层）"),
+        ("BB_AMP / HOJ_ADAP / HOJ_VAMP", "0.10 / 0.18 / 0.15", "蓝霸符 +10%AD/AP；正义之手 +18%AD/AP 或 +15%全能吸血"),
+        ("AH_MANA_PCT / AH_TANK_ARMOR / AH_OTHER_AMP", "0.15 / 30 / 0.10", "适应性头盔：+15% 法力；坦克/战士 +30 双抗，其他 +10% AD/AP"),
+        ("IONIC_RANGE / TWILIGHT_RANGE / TWILIGHT_SELF_ARMOR", "2 / 2 / 15", "离子火花/薄暮法袍 光环半径；薄暮开局 15 秒 +15 双抗"),
+        ("GIANT_SLAYER_RATIO / GIANT_SLAYER_PCT", "1.5 / 0.15", "巨人捕手：目标生命≥自身 1.5 倍时 +15% 增伤"),
+        ("CRIT_DMG_BONUS", 0.25, "crit_damage（旧）：暴击 1.5→1.75"),
+        ("ARMOR_PEN_PCT / MAGIC_RESIST_PCT / LIFESTEAL_PCT / SPELL_VAMP_PCT", "0.30 / 0.30 / 0.25 / 0.25", "旧关键字：破甲/龙牙/饮血/科技枪 比例"),
+        ("CLEAVE_PCT / THORNS_PCT / MULTI_SHOT_PCT", "0.50 / 0.20 / 0.40", "旧关键字：九头蛇溅射/荆棘反弹/分裂弓"),
+        ("REVIVE_HP_PCT / ON_CAST_AD / ON_CAST_DUR", "0.50 / 0.20 / 6.0", "守护天使 / 三相之力"),
         ("SLOW_AURA_RANGE / SLOW_AURA_REDUCE", "2 / 0.25", "冰心：半径 2 格敌人攻速 -25%"),
     ]
     eff_rows = []

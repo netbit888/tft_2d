@@ -30,8 +30,12 @@ def compute_stats(
     base_ap = tpl.ap  # 法强不随星级成长（与现行为一致）
     base_attack_speed = tpl.attack_speed * as_mult
 
-    max_hp = base_max_hp * (1.0 + mods.hp_pct) + mods.hp_flat + it.get("hp_flat", 0)
-    ad = base_ad * (1.0 + mods.ad_pct) + mods.ad_flat + it.get("ad_flat", 0)
+    max_hp = (
+        base_max_hp * (1.0 + mods.hp_pct + it.get("hp_pct", 0))
+        + mods.hp_flat
+        + it.get("hp_flat", 0)
+    )
+    ad = base_ad * (1.0 + mods.ad_pct + it.get("ad_pct", 0)) + mods.ad_flat + it.get("ad_flat", 0)
     ap = base_ap + mods.ap_flat + it.get("ap_flat", 0)
     return {
         "max_hp": max_hp,
@@ -46,7 +50,10 @@ def compute_stats(
             AS_CAP,
         ),
         "crit_chance": min(1.0, tpl.crit_chance + mods.crit_flat + it.get("crit_flat", 0)),
-        "damage_amp": mods.damage_amp,
+        "damage_amp": mods.damage_amp + it.get("damage_amp", 0),
+        "mana_regen": it.get("mana_regen", 0),
+        "omnivamp": it.get("omnivamp", 0),
+        "dmg_reduce": it.get("dmg_reduce", 0),
         "base_max_hp": base_max_hp,
         "base_ad": base_ad,
         "base_ap": base_ap,

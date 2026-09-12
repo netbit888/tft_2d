@@ -1,62 +1,439 @@
 {
   "base": {
-    "sword": { "name": "暴风大剑", "stats": { "ad_flat": 10 } },
-    "bow":   { "name": "反曲之弓", "stats": { "attack_speed_pct": 0.15 } },
-    "wand":  { "name": "无用大棒", "stats": { "ap_flat": 10 } },
-    "chain": { "name": "锁子甲",   "stats": { "armor_flat": 20 } },
-    "cloak": { "name": "负极斗篷", "stats": { "mr_flat": 20 } },
-    "belt":  { "name": "巨人腰带", "stats": { "hp_flat": 150 } },
-    "tear":  { "name": "女神之泪", "stats": { "mana_flat": 15 } },
-    "glove": { "name": "拳击手套", "stats": { "crit_flat": 0.05 } }
+    "sword": {
+      "name": "暴风大剑",
+      "stats": {
+        "ad_flat": 10
+      }
+    },
+    "bow": {
+      "name": "反曲之弓",
+      "stats": {
+        "attack_speed_pct": 0.15
+      }
+    },
+    "wand": {
+      "name": "无用大棒",
+      "stats": {
+        "ap_flat": 10
+      }
+    },
+    "chain": {
+      "name": "锁子甲",
+      "stats": {
+        "armor_flat": 20
+      }
+    },
+    "cloak": {
+      "name": "负极斗篷",
+      "stats": {
+        "mr_flat": 20
+      }
+    },
+    "belt": {
+      "name": "巨人腰带",
+      "stats": {
+        "hp_flat": 150
+      }
+    },
+    "tear": {
+      "name": "女神之泪",
+      "stats": {
+        "mana_flat": 15
+      }
+    },
+    "glove": {
+      "name": "拳击手套",
+      "stats": {
+        "crit_flat": 0.05
+      }
+    }
   },
   "combine": {
-    "sword+sword": { "name": "锐利之刃",             "stats": { "ad_flat": 20 },                                "effect": "none" },
-    "sword+bow":   { "name": "巨人捕手",             "stats": { "ad_flat": 10, "attack_speed_pct": 0.15 },     "effect": "giant_slayer" },
-    "sword+wand":  { "name": "海克斯科技枪刃",       "stats": { "ad_flat": 10, "ap_flat": 10 },                "effect": "spell_vamp" },
-    "sword+chain": { "name": "夜之锋刃",             "stats": { "ad_flat": 10, "armor_flat": 20 },             "effect": "none" },
-    "sword+cloak": { "name": "饮血剑",               "stats": { "ad_flat": 10, "mr_flat": 20 },                "effect": "lifesteal" },
-    "sword+belt":  { "name": "斯特拉克的挑战护手",   "stats": { "ad_flat": 10, "hp_flat": 150 },               "effect": "none" },
-    "sword+tear":  { "name": "朔极之矛",             "stats": { "ad_flat": 10, "mana_flat": 15 },              "effect": "none" },
-    "sword+glove": { "name": "无尽之刃",             "stats": { "ad_flat": 10, "crit_flat": 0.05 },            "effect": "crit_damage" },
-
-    "bow+bow":     { "name": "红霸符",               "stats": { "attack_speed_pct": 0.30 },                    "effect": "none" },
-    "bow+wand":    { "name": "鬼索的狂暴之刃",       "stats": { "attack_speed_pct": 0.15, "ap_flat": 10 },     "effect": "ramping_as" },
-    "bow+chain":   { "name": "泰坦的坚决",           "stats": { "attack_speed_pct": 0.15, "armor_flat": 20 },  "effect": "none" },
-    "bow+cloak":   { "name": "海妖之怒",             "stats": { "attack_speed_pct": 0.15, "mr_flat": 20 },     "effect": "multi_shot" },
-    "bow+belt":    { "name": "纳什之牙",             "stats": { "attack_speed_pct": 0.15, "hp_flat": 150 },    "effect": "none" },
-    "bow+tear":    { "name": "斯塔缇克电刃",         "stats": { "attack_speed_pct": 0.15, "mana_flat": 15 },   "effect": "none" },
-    "bow+glove":   { "name": "最后的轻语",           "stats": { "attack_speed_pct": 0.15, "crit_flat": 0.05 }, "effect": "armor_pen" },
-
-    "wand+wand":   { "name": "灭世者的死亡之帽",     "stats": { "ap_flat": 20 },                               "effect": "ap_amp" },
-    "wand+chain":  { "name": "冕卫",                 "stats": { "ap_flat": 10, "armor_flat": 20 },             "effect": "none" },
-    "wand+cloak":  { "name": "离子火花",             "stats": { "ap_flat": 10, "mr_flat": 20 },                "effect": "none" },
-    "wand+belt":   { "name": "莫雷洛秘典",           "stats": { "ap_flat": 10, "hp_flat": 150 },               "effect": "grievous_wounds" },
-    "wand+tear":   { "name": "大天使之杖",           "stats": { "ap_flat": 10, "mana_flat": 15 },              "effect": "mana_ap" },
-    "wand+glove":  { "name": "珠光护手",             "stats": { "ap_flat": 10, "crit_flat": 0.05 },            "effect": "ability_crit" },
-
-    "chain+chain": { "name": "荆棘背心",             "stats": { "armor_flat": 40 },                            "effect": "thorns" },
-    "chain+cloak": { "name": "石像鬼石板甲",         "stats": { "armor_flat": 20, "mr_flat": 20 },             "effect": "none" },
-    "chain+belt":  { "name": "日炎斗篷",             "stats": { "armor_flat": 20, "hp_flat": 150 },            "effect": "burn" },
-    "chain+tear":  { "name": "圣盾使的誓约",         "stats": { "armor_flat": 20, "mana_flat": 15 },           "effect": "none" },
-    "chain+glove": { "name": "坚定之心",             "stats": { "armor_flat": 20, "crit_flat": 0.05 },         "effect": "none" },
-
-    "cloak+cloak": { "name": "巨龙之爪",             "stats": { "mr_flat": 40 },                               "effect": "magic_resist" },
-    "cloak+belt":  { "name": "薄暮法袍",             "stats": { "mr_flat": 20, "hp_flat": 150 },               "effect": "none" },
-    "cloak+tear":  { "name": "适应性头盔",           "stats": { "mr_flat": 20, "mana_flat": 15 },              "effect": "none" },
-    "cloak+glove": { "name": "水银饰带",             "stats": { "mr_flat": 20, "crit_flat": 0.05 },            "effect": "none" },
-
-    "belt+belt":   { "name": "狂徒铠甲",             "stats": { "hp_flat": 300 },                              "effect": "regen" },
-    "belt+tear":   { "name": "振奋盔甲",             "stats": { "hp_flat": 150, "mana_flat": 15 },             "effect": "none" },
-    "belt+glove":  { "name": "强袭者的链枷",         "stats": { "hp_flat": 150, "crit_flat": 0.05 },           "effect": "none" },
-
-    "tear+tear":   { "name": "蓝霸符",               "stats": { "mana_flat": 30 },                             "effect": "none" },
-    "tear+glove":  { "name": "正义之手",             "stats": { "mana_flat": 15, "crit_flat": 0.05 },          "effect": "none" },
-    "glove+glove": { "name": "窃贼手套",             "stats": { "crit_flat": 0.10 },                           "effect": "none" }
+    "sword+sword": {
+      "name": "锐利之刃",
+      "stats": {
+        "ad_flat": 55.0,
+        "damage_amp": 0.1
+      },
+      "effect": "none",
+      "desc": "将完美的安宁和平静带给携带者——和所有面对它的人。  额外物理加成:0%"
+    },
+    "sword+bow": {
+      "name": "巨人捕手",
+      "stats": {
+        "ad_flat": 15.0,
+        "ap_flat": 15.0,
+        "attack_speed_pct": 0.15,
+        "damage_amp": 0.15
+      },
+      "effect": "giant_slayer",
+      "desc": "对抗坦克时获得15%额外伤害增幅。"
+    },
+    "sword+wand": {
+      "name": "海克斯科技枪刃",
+      "stats": {
+        "ad_flat": 20.0,
+        "ap_flat": 20.0,
+        "mana_regen": 1.0,
+        "omnivamp": 0.15
+      },
+      "effect": "hextech_gunblade",
+      "desc": "为生命值百分比最低的友军提供相当于20%造成伤害值的治疗。"
+    },
+    "sword+chain": {
+      "name": "夜之锋刃",
+      "stats": {
+        "armor_flat": 20.0,
+        "ad_flat": 10.0,
+        "ap_flat": 10.0,
+        "attack_speed_pct": 0.15
+      },
+      "effect": "edge_of_night",
+      "desc": "救主灵刃：在40%生命值时，短暂变为不可被选取状态、摆脱负面效果、并治疗15%已损失生命值。"
+    },
+    "sword+cloak": {
+      "name": "汲取剑",
+      "stats": {
+        "mr_flat": 20.0,
+        "ad_flat": 18.0,
+        "ap_flat": 18.0,
+        "omnivamp": 0.2
+      },
+      "effect": "bloodthirster",
+      "desc": "每场战斗仅触发1次：在50%生命值时，获得一个护盾，护盾值相当于携带者30%的最大生命值，至多持续5秒。"
+    },
+    "sword+belt": {
+      "name": "斯特拉克的挑战护手",
+      "stats": {
+        "hp_flat": 300.0,
+        "ad_flat": 45.0
+      },
+      "effect": "steraks_gage",
+      "desc": "救主灵刃：在60%生命值时，获得相当于携带者40%最大生命值的护盾值，在4秒内快速衰减。"
+    },
+    "sword+tear": {
+      "name": "朔极之矛",
+      "stats": {
+        "ad_flat": 15.0,
+        "ap_flat": 15.0,
+        "mana_regen": 1.0
+      },
+      "effect": "spear_of_shojin",
+      "desc": "每次普攻提供5额外法力值。"
+    },
+    "sword+glove": {
+      "name": "无尽之刃",
+      "stats": {
+        "ad_flat": 35.0,
+        "crit_flat": 0.35
+      },
+      "effect": "ability_crit",
+      "desc": "获得【技能暴击】。  技能暴击：技能伤害可产生暴击。额外的【技能暴击】提供10%暴击伤害。"
+    },
+    "bow+bow": {
+      "name": "红霸符",
+      "stats": {
+        "attack_speed_pct": 0.45,
+        "damage_amp": 0.03
+      },
+      "effect": "red_buff",
+      "desc": "攻击和技能的伤害对敌人们造成持续5秒的1%灼烧效果和33%重伤效果。  灼烧：每秒造成目标一部分最大生命值的真实伤害 重伤：降低受到的治疗效果"
+    },
+    "bow+wand": {
+      "name": "鬼索的狂暴之刃",
+      "stats": {
+        "ap_flat": 10.0,
+        "attack_speed_pct": 0.1
+      },
+      "effect": "ramping_as",
+      "desc": "每秒获得7%可叠加的攻击速度。"
+    },
+    "bow+chain": {
+      "name": "泰坦的坚决",
+      "stats": {
+        "armor_flat": 20.0,
+        "attack_speed_pct": 0.1
+      },
+      "effect": "titans_resolve",
+      "desc": "在攻击或承受伤害时获得2%物理加成和2%法术加成，至多可叠加25次。  在叠满层数后，获得10%伤害增幅，并获得控制免疫。"
+    },
+    "bow+cloak": {
+      "name": "海妖之怒",
+      "stats": {
+        "mr_flat": 20.0,
+        "ad_flat": 10.0,
+        "attack_speed_pct": 0.1
+      },
+      "effect": "kraken_slayer",
+      "desc": "攻击提供3.5%可叠加的物理加成，至多至15次攻击。在15次攻击后，获得15%攻击速度。"
+    },
+    "bow+belt": {
+      "name": "纳什之牙",
+      "stats": {
+        "hp_flat": 150.0,
+        "ap_flat": 15.0,
+        "attack_speed_pct": 0.1,
+        "crit_flat": 0.2
+      },
+      "effect": "nashors_tooth",
+      "desc": "每次普攻提供2额外法力值，如果暴击则提供额外的4法力值。"
+    },
+    "bow+tear": {
+      "name": "虚空之杖",
+      "stats": {
+        "ap_flat": 35.0,
+        "mana_regen": 1.0,
+        "attack_speed_pct": 0.15
+      },
+      "effect": "void_staff",
+      "desc": "攻击和技能伤害都会对目标施加持续5秒的30%魔抗击碎。这个效果不会叠加。  魔抗击碎：降低魔法抗性"
+    },
+    "bow+glove": {
+      "name": "最后的轻语",
+      "stats": {
+        "ad_flat": 15.0,
+        "attack_speed_pct": 0.2,
+        "crit_flat": 0.2
+      },
+      "effect": "last_whisper",
+      "desc": "来自攻击和技能的伤害会对目标施加持续3秒的30%护甲击碎。这个效果不会叠加。  护甲击碎：降低护甲值"
+    },
+    "wand+wand": {
+      "name": "班克斯的魔法帽",
+      "stats": {
+        "ap_flat": 55.0,
+        "damage_amp": 0.15
+      },
+      "effect": "none",
+      "desc": "这顶不起眼的帽子可以帮助你创造，或毁灭，这个世界本身。  额外法术加成:0%"
+    },
+    "wand+chain": {
+      "name": "冕卫",
+      "stats": {
+        "hp_flat": 100.0,
+        "armor_flat": 20.0,
+        "ap_flat": 20.0
+      },
+      "effect": "crown_guard",
+      "desc": "战斗开始时：获得持续8秒的相当于25%最大生命值的护盾值。  在护盾到期时，获得25%法术加成。"
+    },
+    "wand+cloak": {
+      "name": "离子火花",
+      "stats": {
+        "hp_flat": 250.0,
+        "mr_flat": 35.0,
+        "ap_flat": 15.0
+      },
+      "effect": "ionic_spark",
+      "desc": "对2格内的敌人们施加30%魔抗击碎。在敌人施放一次技能时，对该敌人造成相当于该敌人150%法力值消耗的魔法伤害。 魔抗击碎：降低魔抗值"
+    },
+    "wand+belt": {
+      "name": "莫雷洛秘典",
+      "stats": {
+        "hp_flat": 150.0,
+        "ap_flat": 20.0,
+        "mana_regen": 1.0
+      },
+      "effect": "morellonomicon",
+      "desc": "攻击和技能的伤害对敌人们造成持续10秒的1%灼烧效果和33%重伤效果。  灼烧：每秒造成目标一部分最大生命值的真实伤害 重伤：降低受到的治疗效果"
+    },
+    "wand+tear": {
+      "name": "大天使之杖",
+      "stats": {
+        "ap_flat": 30.0,
+        "mana_regen": 1.0
+      },
+      "effect": "archangels_staff",
+      "desc": "战斗开始时：在战斗期间，每5秒获得20%法术加成。"
+    },
+    "wand+glove": {
+      "name": "珠光护手",
+      "stats": {
+        "ap_flat": 35.0,
+        "crit_flat": 0.35
+      },
+      "effect": "ability_crit",
+      "desc": "获得【技能暴击】。  技能暴击：技能伤害可产生暴击。额外的【技能暴击】提供10%暴击伤害。"
+    },
+    "chain+chain": {
+      "name": "棘刺背心",
+      "stats": {
+        "armor_flat": 50.0,
+        "hp_pct": 0.06
+      },
+      "effect": "bramble_vest",
+      "desc": "获得6%最大生命值。  使来自攻击的伤害降低5%。在被任一攻击命中时，对邻格所有敌人造成100魔法伤害。  冷却时间：2秒"
+    },
+    "chain+cloak": {
+      "name": "石像鬼石板甲",
+      "stats": {
+        "hp_flat": 100.0,
+        "armor_flat": 25.0,
+        "mr_flat": 25.0
+      },
+      "effect": "stoneplate",
+      "desc": "每有一个敌人正在以携带者为目标，携带者就会获得10护甲和10魔抗。"
+    },
+    "chain+belt": {
+      "name": "日炎斗篷",
+      "stats": {
+        "hp_flat": 150.0,
+        "armor_flat": 20.0,
+        "hp_pct": 0.08
+      },
+      "effect": "sunfire_cape",
+      "desc": "获得8%最大生命值。  每过2秒，对2格内的一名敌人施加持续10秒的1%灼烧效果和33%重伤效果。  灼烧：每秒造成目标一部分最大生命值的真实伤害 重伤：降低受到的治疗效果"
+    },
+    "chain+tear": {
+      "name": "圣盾使的誓约",
+      "stats": {
+        "armor_flat": 25.0,
+        "mr_flat": 25.0,
+        "mana_regen": 1.0
+      },
+      "effect": "protectors_vow",
+      "desc": "战斗开始时：获得20法力值。  在40%生命值时，获得15法力值和相当于20%最大生命值的护盾值。"
+    },
+    "chain+glove": {
+      "name": "坚定之心",
+      "stats": {
+        "hp_flat": 250.0,
+        "armor_flat": 20.0,
+        "crit_flat": 0.2
+      },
+      "effect": "steadfast_heart",
+      "desc": "获得5%伤害减免。在高于50%生命值时，转而获得15%伤害减免。"
+    },
+    "cloak+cloak": {
+      "name": "巨龙之爪",
+      "stats": {
+        "mr_flat": 60.0,
+        "hp_pct": 0.06
+      },
+      "effect": "dragons_claw",
+      "desc": "获得6%最大生命值。  每2秒治疗2.5%最大生命值。"
+    },
+    "cloak+belt": {
+      "name": "薄暮法袍",
+      "stats": {
+        "hp_flat": 250.0,
+        "mr_flat": 20.0
+      },
+      "effect": "twilight_veil",
+      "desc": "2格内的敌人们会被施加30%护甲削减。在战斗的最初15秒获得15护甲和魔抗。  护甲击碎：降低护甲值"
+    },
+    "cloak+tear": {
+      "name": "适应性头盔",
+      "stats": {
+        "mr_flat": 20.0,
+        "mana_regen": 3.0
+      },
+      "effect": "adaptive_helm",
+      "desc": "从所有来源中获得额外的15%法力值。携带者获得基于其角色定位的一个额外加成：  坦克和战士：获得30护甲和魔抗。  其它角色定位：获得10%物理加成和法术加成。"
+    },
+    "cloak+glove": {
+      "name": "水银",
+      "stats": {
+        "mr_flat": 20.0,
+        "attack_speed_pct": 0.15,
+        "crit_flat": 0.2
+      },
+      "effect": "quicksilver",
+      "desc": "战斗开始时：获得持续18秒的控制免疫效果。  每秒获得3%可叠加的攻击速度。"
+    },
+    "belt+belt": {
+      "name": "狂徒铠甲",
+      "stats": {
+        "hp_flat": 500.0,
+        "hp_pct": 0.18
+      },
+      "effect": "warmogs_armor",
+      "desc": "获得18%最大生命值。"
+    },
+    "belt+tear": {
+      "name": "振奋盔甲",
+      "stats": {
+        "hp_flat": 300.0,
+        "mana_regen": 2.0,
+        "dmg_reduce": 0.08
+      },
+      "effect": "spirit_visage",
+      "desc": "每秒回复2%已损失生命值。"
+    },
+    "belt+glove": {
+      "name": "强袭者的链枷",
+      "stats": {
+        "hp_flat": 150.0,
+        "attack_speed_pct": 0.1,
+        "crit_flat": 0.2,
+        "damage_amp": 0.1
+      },
+      "effect": "chain_lash",
+      "desc": "暴击提供持续5秒的5%伤害增幅，可叠加至多4次。"
+    },
+    "tear+tear": {
+      "name": "蓝霸符",
+      "stats": {
+        "ad_flat": 15.0,
+        "ap_flat": 15.0,
+        "mana_regen": 5.0
+      },
+      "effect": "blue_buff",
+      "desc": "从所有来源中获得10%额外物理加成和法术加成。"
+    },
+    "tear+glove": {
+      "name": "正义之手",
+      "stats": {
+        "mana_regen": 1.0,
+        "crit_flat": 0.2
+      },
+      "effect": "hand_of_justice",
+      "desc": "获得2个效果： -18%物理加成和18%法术加成。 -15%全能汲取。  生命值高于50%时，物理加成和法术加成翻倍。生命值低于50%时，全能汲取效果翻倍。"
+    },
+    "glove+glove": {
+      "name": "秘法手套",
+      "stats": {
+        "hp_flat": 150.0,
+        "crit_flat": 0.2
+      },
+      "effect": "none",
+      "desc": "每一回合：装备2件随机装备。  [需要用掉3个装备格。]"
+    }
   },
   "artifacts": {
-    "guardian_angel": { "name": "守护天使", "stats": { "ad_flat": 15, "armor_flat": 20 },          "effect": "revive" },
-    "trinity_force":  { "name": "三相之力", "stats": { "ad_flat": 15, "attack_speed_pct": 0.15, "mana_flat": 15 }, "effect": "on_cast_buff" },
-    "titanic_hydra":  { "name": "巨型九头蛇", "stats": { "hp_flat": 200, "ad_flat": 15 },          "effect": "aoe_cleave" },
-    "frozen_heart":   { "name": "冰霜之心", "stats": { "armor_flat": 30, "mana_flat": 20 },        "effect": "slow_aura" }
+    "guardian_angel": {
+      "name": "守护天使",
+      "stats": {
+        "ad_flat": 15,
+        "armor_flat": 20
+      },
+      "effect": "revive"
+    },
+    "trinity_force": {
+      "name": "三相之力",
+      "stats": {
+        "ad_flat": 15,
+        "attack_speed_pct": 0.15,
+        "mana_flat": 15
+      },
+      "effect": "on_cast_buff"
+    },
+    "titanic_hydra": {
+      "name": "巨型九头蛇",
+      "stats": {
+        "hp_flat": 200,
+        "ad_flat": 15
+      },
+      "effect": "aoe_cleave"
+    },
+    "frozen_heart": {
+      "name": "冰霜之心",
+      "stats": {
+        "armor_flat": 30,
+        "mana_flat": 20
+      },
+      "effect": "slow_aura"
+    }
   }
 }

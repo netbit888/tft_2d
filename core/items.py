@@ -125,6 +125,16 @@ def item_effect(item_id: str) -> str:
     return "none"
 
 
+def item_desc(item_id: str) -> str:
+    """装备的官方特效原文（来自官方 equip.js，供详情展示；无则为空串）。"""
+    items = load_items()
+    if item_id in items["combine"]:
+        return items["combine"][item_id].get("desc", "")
+    if item_id in items["artifacts"]:
+        return items["artifacts"][item_id].get("desc", "")
+    return ""
+
+
 @dataclass
 class ItemInstance:
     """玩家持有的一件装备。
