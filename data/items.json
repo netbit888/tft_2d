@@ -3,50 +3,58 @@
     "sword": {
       "name": "暴风大剑",
       "stats": {
-        "ad_flat": 10
+        "ad_flat": 10.0
       }
     },
     "bow": {
       "name": "反曲之弓",
       "stats": {
-        "attack_speed_pct": 0.15
+        "attack_speed_pct": 0.1
       }
     },
     "wand": {
       "name": "无用大棒",
       "stats": {
-        "ap_flat": 10
-      }
-    },
-    "chain": {
-      "name": "锁子甲",
-      "stats": {
-        "armor_flat": 20
-      }
-    },
-    "cloak": {
-      "name": "负极斗篷",
-      "stats": {
-        "mr_flat": 20
-      }
-    },
-    "belt": {
-      "name": "巨人腰带",
-      "stats": {
-        "hp_flat": 150
+        "ap_flat": 10.0
       }
     },
     "tear": {
       "name": "女神之泪",
       "stats": {
-        "mana_flat": 15
+        "mana_regen": 1.0
+      }
+    },
+    "chain": {
+      "name": "锁子甲",
+      "stats": {
+        "armor_flat": 20.0
+      }
+    },
+    "cloak": {
+      "name": "负极斗篷",
+      "stats": {
+        "mr_flat": 20.0
+      }
+    },
+    "belt": {
+      "name": "巨人腰带",
+      "stats": {
+        "hp_flat": 150.0
       }
     },
     "glove": {
       "name": "拳击手套",
       "stats": {
-        "crit_flat": 0.05
+        "crit_flat": 0.2
       }
+    },
+    "spatula": {
+      "name": "金铲铲",
+      "stats": {}
+    },
+    "pan": {
+      "name": "金锅锅",
+      "stats": {}
     }
   },
   "combine": {
@@ -399,6 +407,24 @@
       },
       "effect": "none",
       "desc": "每一回合：装备2件随机装备。  [需要用掉3个装备格。]"
+    },
+    "spatula+spatula": {
+      "name": "金铲铲冠冕",
+      "stats": {},
+      "effect": "team_size",
+      "desc": "你的队伍获得+1最大队伍规模。  在你赢下战斗时，有10%几率掉落1金币。  “……某位英雄的心……”"
+    },
+    "pan+pan": {
+      "name": "金锅锅冠冕",
+      "stats": {},
+      "effect": "team_size",
+      "desc": "你的队伍获得+1最大队伍规模。  在携带者倒下时，有10%几率掉落1金币。  “充满了某位哲学家的智慧……”"
+    },
+    "spatula+pan": {
+      "name": "金锅铲冠冕",
+      "stats": {},
+      "effect": "team_size",
+      "desc": "你的队伍获得+1最大队伍规模。  在战斗10秒后，有10%几率掉落1金币。  “……以及一点运气。”"
     }
   },
   "artifacts": {

@@ -11,9 +11,20 @@
 from __future__ import annotations
 
 from .ai import ai_equip, ai_take_turn, ai_upgrade_check
-from .combat import Combat
+from .combat import TICK_RATE, Combat
 from .deploy import assign_positions, auto_place
-from .items import FIRST_DROP_ROUND, ItemInstance, drop_item
+from .items import (
+    CROWN_DROP_CHANCE,
+    CROWN_EGG_GOLD_PER_SEC,
+    CROWN_MIX,
+    CROWN_MIX_DELAY,
+    CROWN_PAN,
+    CROWN_SPATULA,
+    FIRST_DROP_ROUND,
+    ItemInstance,
+    drop_item,
+    has_all_crowns,
+)
 from .loader import build_team
 from .models import CombatResult
 from .player import Player
@@ -209,6 +220,45 @@ class Game:
                 drops.append((i, item))
         return drops
 
+    # ---------- 冠冕：官方次要效果 + 三冠冕彩蛋 ----------
+
+    def crown_rewards(self, idx: int, combat: Combat | None, team: str) -> dict:
+        """结算某玩家本场的冠冕收益（金币），返回 {"drop_gold", "egg_gold"}。
+
+        - 金铲铲冠冕：赢下战斗时 10% 掉 1 金；
+        - 金锅锅冠冕：携带者倒下时 10% 掉 1 金；
+        - 金锅铲冠冕：战斗满 CROWN_MIX_DELAY 秒后 10% 掉 1 金；
+        - 集齐三种冠冕 → 「三冠冕彩蛋」：战斗中每秒 +CROWN_EGG_GOLD_PER_SEC 金。
+        """
+        if combat is None or combat.result is None:
+            return {"drop_gold": 0, "egg_gold": 0}
+        result = combat.result
+        secs = result.ticks / TICK_RATE
+        won = result.winner == team
+
+        drop_gold = 0
+        equipped: list[str] = []
+        for u in combat.units:
+            if u.team != team:
+                continue
+            equipped.extend(u.equip_ids)
+            for iid in u.equip_ids:
+                if iid == CROWN_SPATULA and won and self.rng.random() < CROWN_DROP_CHANCE:
+                    drop_gold += 1
+                elif iid == CROWN_PAN and not u.alive and self.rng.random() < CROWN_DROP_CHANCE:
+                    drop_gold += 1
+                elif (
+                    iid == CROWN_MIX
+                    and secs >= CROWN_MIX_DELAY
+                    and self.rng.random() < CROWN_DROP_CHANCE
+                ):
+                    drop_gold += 1
+
+        egg_gold = CROWN_EGG_GOLD_PER_SEC * int(secs) if has_all_crowns(equipped) else 0
+        if drop_gold or egg_gold:
+            self.players[idx].gold += drop_gold + egg_gold
+        return {"drop_gold": drop_gold, "egg_gold": egg_gold}
+
     # ------------------------------------------------------------------
     # 整回合驱动：GUI / CLI / 无头仿真共用这一套“单一真源”流程。
     # 顺序固定为：运营 → 补位/配对 → AI 对局即时结算 → 玩家对局（返回给
@@ -246,6 +296,8 @@ class Game:
                 combat = self.fight_pair(a, b)
                 result = combat.run() if combat is not None else None
                 self.settle_pair(a, b, result)
+                self.crown_rewards(a, combat, "blue")
+                self.crown_rewards(b, combat, "red")
         return self.fight()
 
     def finish_battle(self, combat: Combat | None) -> dict:
@@ -256,6 +308,14 @@ class Game:
         """
         result = combat.result if combat is not None else None
         settle_msg = self.settle(result)
+        crown = self.crown_rewards(0, combat, "blue")
+        bits = []
+        if crown["egg_gold"]:
+            bits.append(f"三冠冕彩蛋 +{crown['egg_gold']} 金")
+        if crown["drop_gold"]:
+            bits.append(f"冠冕掉落 +{crown['drop_gold']} 金")
+        if bits:
+            settle_msg += "（" + "，".join(bits) + "）"
         drops = self.drop_items_for_round()
         eliminated = [p for p in self.players if p.hp <= 0 and p.alive]
         for p in eliminated:
@@ -263,6 +323,7 @@ class Game:
         return {
             "result": result,
             "settle_msg": settle_msg,
+            "crown": crown,
             "drops": drops,
             "eliminated": eliminated,
             "over": self.is_over(),

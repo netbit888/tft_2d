@@ -51,16 +51,16 @@ def test_app_deploy_and_battle_flow():
 
 
 def test_armory_two_tabs():
-    """F2 自选台双页：打开（成装页）→ 切到散件页 → 点格子获得基础装备，两页均可绘制。"""
-    from core.items import ItemInstance, is_base_item
+    """F2 自选台：打开（成装页）→ 切到散件页 → 点格子获得基础装备，各页均可绘制。"""
+    from core.items import ItemInstance, is_base_item, load_items, special_item_ids
 
     from render.armory_view import armory_entries, armory_geometry
 
     app = _make_app()
-    # F2 打开自选台：默认在成装页（37 项）
+    # F2 打开自选台：默认在成装页（全部成装 + 特殊工具，与 data/items.json 同源）
     app.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_F2))
     assert app.armory_open and app.armory_tab == 0
-    assert len(armory_entries(0)) == 37
+    assert len(armory_entries(0)) == len(load_items()["combine"]) + len(special_item_ids())
 
     # 点顶部「散件」tab 切页
     tab1 = armory_geometry(0)["tabs"][1]
@@ -69,7 +69,7 @@ def test_armory_two_tabs():
     )
     assert app.armory_tab == 1
     base_entries = armory_entries(1)
-    assert len(base_entries) == 8
+    assert len(base_entries) == len(load_items()["base"])
 
     # 点散件页第一格：获得一件基础装备
     before = len(app.game.you.item_bench)

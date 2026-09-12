@@ -52,6 +52,7 @@ SUPPORTED_EFFECTS = {
     "sunfire_cape", "protectors_vow", "steadfast_heart", "dragons_claw",
     "twilight_veil", "adaptive_helm", "quicksilver", "warmogs_armor",
     "spirit_visage", "chain_lash", "blue_buff", "hand_of_justice",
+    "team_size",  # 冠冕：队伍 +1 最大队伍规模
 }
 
 
@@ -159,8 +160,8 @@ def check_data() -> list[str]:
 
     # ---- items.json ----
     bases = items.get("base", {})
-    if len(bases) != 8:
-        errors.append(f"基础装备数量应为 8，实际 {len(bases)}")
+    if len(bases) != 10:
+        errors.append(f"基础装备数量应为 10，实际 {len(bases)}")
     for iid, data in bases.items():
         if not data.get("name"):
             errors.append(f"基础装备 {iid} 缺少 name")

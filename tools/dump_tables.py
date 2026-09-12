@@ -108,6 +108,7 @@ _EFFECT_NOTES = {
     "chain_lash": "暴击提供 +5% 增伤（5 秒，至多 4 层）（强袭者的链枷）",
     "blue_buff": "从所有来源 +10% 攻击与法强（蓝霸符）",
     "hand_of_justice": "随机 +18% 攻击/法强（高血翻倍）或 +15% 全能吸血（低血翻倍）（正义之手）",
+    "team_size": "队伍 +1 最大队伍规模；次要：10% 概率掉 1 金币（按官方时机触发）；集齐三种冠冕解锁「三冠冕彩蛋」：战斗中每秒 +10 金币",
 }
 
 _AB_TYPE = {"nuke": "单体", "aoe": "范围", "heal": "治疗"}
@@ -260,7 +261,10 @@ def section_base_items() -> str:
     items = load_json("items.json")
     bases = items["base"]
     headers = ["id", "名称", "属性"]
-    rows = [[iid, data["name"], fmt_mods(data.get("stats", {}))] for iid, data in bases.items()]
+    rows = [
+        [iid, data["name"], fmt_mods(data.get("stats", {})) or "—"]
+        for iid, data in bases.items()
+    ]
     return (
         "\n## 三、散件（基础装备）\n\n"
         "散件可直接装备（只有基础属性），也可以两两合成成装。\n"
@@ -279,10 +283,14 @@ def section_combine_items() -> str:
         recipe = f"{bases[a]['name']} + {bases[b]['name']}"
         eff = data.get("effect", "none")
         note = _EFFECT_NOTES.get(eff, "")
-        rows.append([f"`{key}`<br>{recipe}", data["name"], fmt_mods(data.get("stats", {})), note or "—"])
+        rows.append([
+            f"`{key}`<br>{recipe}", data["name"],
+            fmt_mods(data.get("stats", {})) or "—", note or "—",
+        ])
     return (
         "\n## 四、成装（合成装备）\n\n"
-        "公式与顺序无关（`sword+bow` = `bow+sword`）。属性为两件散件相加后再给额外加成后的最终值，"
+        "公式与顺序无关（`sword+bow` = `bow+sword`）。属性为官方 equip.js 给出的"
+        "**该成装最终合计值**（并非两件散件简单相加），"
         "特殊效果的具体数值系数见附录 C（core/combat.py）。\n"
         + md_table(headers, rows)
     )

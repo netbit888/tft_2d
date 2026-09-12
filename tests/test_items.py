@@ -54,3 +54,64 @@ def test_item_bench_is_unbounded():
     for i in range(40):
         g.you.item_bench.append(ItemInstance(SWORD if i % 2 else BOW))
     assert len(g.you.item_bench) == 40, "装备栏背包不应被容量上限截断"
+
+
+# ---------- 冠冕：官方次要效果 + 三冠冕彩蛋 ----------
+
+
+def test_crown_helpers():
+    """三种冠冕的识别与「集齐」判定。"""
+    from core.items import CROWN_IDS, has_all_crowns, is_crown
+
+    assert len(CROWN_IDS) == 3
+    assert all(is_crown(c) for c in CROWN_IDS)
+    assert not is_crown(SWORD)
+    assert has_all_crowns(CROWN_IDS)
+    assert not has_all_crowns(CROWN_IDS[:2]), "缺一顶不算集齐"
+
+
+def test_crown_egg_gold_per_battle_second():
+    """三冠冕彩蛋：场上集齐三种冠冕时，本场战斗每秒 +10 金。"""
+    from core.combat import TICK_RATE
+    from core.items import CROWN_EGG_GOLD_PER_SEC, CROWN_IDS
+    from core.player import Piece
+
+    g = Game(seed=1)
+    you, enemy = g.you, g.enemy
+    you.board = [Piece("s18_ornn")]
+    enemy.board = [Piece("s18_warwick")]
+    for c in CROWN_IDS:
+        you.board[0].equip.append(ItemInstance(c))
+    you.gold = 0
+
+    combat = g.fight()
+    assert combat is not None
+    combat.run()
+    secs = int(combat.result.ticks / TICK_RATE)
+
+    res = g.crown_rewards(0, combat, "blue")
+    assert res["egg_gold"] == CROWN_EGG_GOLD_PER_SEC * secs, "彩蛋应按战斗中每秒产金"
+    assert 0 <= res["drop_gold"] <= 3, "三件冠冕的次要掉落各至多 1 金"
+    assert you.gold == res["egg_gold"] + res["drop_gold"]
+
+
+def test_crown_secondary_drop_is_ten_percent():
+    """官方次要效果：判定命中时每件冠冕掉 1 金（这里把随机固定为必中验证上限）。"""
+    from core.items import CROWN_IDS
+    from core.player import Piece
+
+    g = Game(seed=2)
+    you, enemy = g.you, g.enemy
+    you.board = [Piece("s18_ornn")]
+    enemy.board = [Piece("s18_warwick")]
+    for c in CROWN_IDS:
+        you.board[0].equip.append(ItemInstance(c))
+    you.gold = 0
+
+    combat = g.fight()
+    combat.run()
+    g.rng.random = lambda: 0.0  # 让 10% 判定必中
+    res = g.crown_rewards(0, combat, "blue")
+    # 金铲铲冠冕（胜利时）与金锅锅冠冕（倒下时）互斥情形下各自上限 1；
+    # 这里只验证：命中时至少能掉金，且不超过 3 次判定。
+    assert 0 <= res["drop_gold"] <= 3

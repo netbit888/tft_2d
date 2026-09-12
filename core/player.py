@@ -9,13 +9,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .dataio import load_json
-from .items import MAX_ITEMS_PER_PIECE, ItemInstance
+from .items import MAX_ITEMS_PER_PIECE, ItemInstance, item_effect
 from .loader import load_traits, load_units
 from .pool import Pool
 
 MAX_BENCH = 8  # 备战席容量
 MAX_STAR = 3  # 星级上限
 MAX_LEVEL = 10  # 等级上限
+
+TEAM_SIZE_EFFECT = "team_size"  # 冠冕特效：队伍 +1 最大队伍规模
 
 
 def _level_config() -> dict:
@@ -95,8 +97,18 @@ class Player:
         return self.hp > 0 and self.alive
 
     @property
+    def team_cap_bonus(self) -> int:
+        """场上棋子每持有一件冠冕（team_size 特效），队伍规模 +1。"""
+        return sum(
+            1
+            for p in self.board
+            for it in p.equip
+            if item_effect(it.item_id) == TEAM_SIZE_EFFECT
+        )
+
+    @property
     def board_cap(self) -> int:
-        return board_cap_for_level(self.level)
+        return board_cap_for_level(self.level) + self.team_cap_bonus
 
     @property
     def board_pop(self) -> int:

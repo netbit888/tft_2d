@@ -24,6 +24,28 @@ SPECIAL_ITEMS = {
 }
 GOLD_REMOVER = "gold_remover"
 
+# ---------- 冠冕（金铲铲 / 金锅锅 / 金锅铲）----------
+# 官方次要效果：每件冠冕在各自的时机有 10% 几率掉落 1 金币；
+# 集齐三种冠冕额外触发「三冠冕彩蛋」：战斗进行时每秒产出金币。
+CROWN_SPATULA = "spatula+spatula"  # 金铲铲冠冕：赢下战斗时判定掉落
+CROWN_PAN = "pan+pan"              # 金锅锅冠冕：携带者倒下时判定掉落
+CROWN_MIX = "spatula+pan"          # 金锅铲冠冕：战斗满 10 秒后判定掉落
+CROWN_IDS: tuple[str, ...] = (CROWN_SPATULA, CROWN_PAN, CROWN_MIX)
+CROWN_DROP_CHANCE = 0.10           # 每次判定掉落 1 金的概率
+CROWN_MIX_DELAY = 10.0             # 金锅铲冠冕：战斗满 10 秒才判定
+CROWN_EGG_GOLD_PER_SEC = 10        # 三冠冕彩蛋：战斗中每秒产出金币
+
+
+def is_crown(item_id: str) -> bool:
+    """是否三种冠冕之一。"""
+    return item_id in CROWN_IDS
+
+
+def has_all_crowns(item_ids) -> bool:
+    """给定装备 id 集合是否集齐三种冠冕（三冠冕彩蛋条件）。"""
+    s = set(item_ids)
+    return all(c in s for c in CROWN_IDS)
+
 
 def is_special_item(item_id: str) -> bool:
     """是否特殊工具装备（金制拆卸器等），不是基础件也不是可合成的成装。"""
