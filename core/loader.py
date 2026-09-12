@@ -120,7 +120,10 @@ def build_team(placements: list[dict], team: str) -> list[Unit]:
         u.base_ad = s["base_ad"]
         u.base_ap = s["base_ap"]
         u.base_attack_speed = s["base_attack_speed"]
-        u.max_mana = max(0.0, tpl.max_mana - item_mods.get("mana_flat", 0))
-        u.mana = min(u.mana, u.max_mana)
+        # 眼泪系装备：加法加蓝量（之前误写成减法，导致扣蓝），
+        # 并让棋子开局即带这部分蓝，使其更快放技能（与 TFT 泪水系一致）。
+        mana_flat = item_mods.get("mana_flat", 0.0)
+        u.max_mana = max(0.0, tpl.max_mana + mana_flat)
+        u.mana = min(u.mana + mana_flat, u.max_mana)
         # 装备特效统一由 combat 层消费：吸血/法吸在普攻/技能入口各自结算
     return units
