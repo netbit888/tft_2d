@@ -274,11 +274,12 @@ class Game:
         return {"drop_gold": drop_gold, "egg_gold": egg_gold}
 
     def add_egg_gold_live(self) -> int:
-        """BattleView 每秒调用一次：若玩家位集齐三冠冕则 +CROWN_EGG_GOLD_PER_SEC 金，
-        返回本次实际加的金币数（用于 HUD tick 动画）。"""
+        """BattleView / 备战 UI 每秒调用一次：若玩家位（上场 + 备战席）任一棋子
+        集齐三冠冕则 +CROWN_EGG_GOLD_PER_SEC 金，返回本次实际加的金币数
+        （用于 HUD tick 动画）。"""
         self._egg_paid_secs += 1
         equipped: list[str] = []
-        for u in self.players[0].board:
+        for u in self.players[0].board + self.players[0].bench:
             equipped.extend(it.item_id for it in u.equip)
         if not has_all_crowns(equipped):
             return 0

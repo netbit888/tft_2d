@@ -154,7 +154,7 @@ def test_crown_egg_gold_lump_sum_when_skipped():
 
 
 def test_crown_egg_gold_deploy_phase_ticks_per_second():
-    """备战阶段：场上有棋子挂着三冠冕 → add_egg_gold_live 每秒 +10 金。
+    """备战阶段：场上/备战席任一棋子挂着三冠冕 → add_egg_gold_live 每秒 +10 金。
 
     add_egg_gold_live 是部署/战斗两阶段共享的彩蛋入口：备战阶段按真实
     时间触发（render.app._update_fx），战斗阶段按 tick 触发（battle_view._step）。
@@ -180,6 +180,22 @@ def test_crown_egg_gold_deploy_phase_ticks_per_second():
     you.board[0].equip.pop()
     assert g.add_egg_gold_live() == 0, "冠冕不齐时不应加金"
     assert you.gold == 50, "拆掉后金币保持 50"
+
+    # 备战席的棋子挂着三冠冕也应触发（只备战席上场）
+    bench_piece = Piece("s18_warwick")
+    for c in CROWN_IDS:
+        bench_piece.equip.append(ItemInstance(c))
+    you.board[0].equip.clear()  # 移走上场棋子的冠冕
+    you.bench = [bench_piece]
+    assert g.add_egg_gold_live() == 10, "备战席挂着三冠冕也应 +10 金"
+    assert you.gold == 60
+
+    # 上场 + 备战 各戴一半（分摊）也应齐
+    you.board[0].equip.append(ItemInstance(CROWN_IDS[0]))
+    you.board[0].equip.append(ItemInstance(CROWN_IDS[1]))
+    # bench 上还差一顶，再加一顶到 bench（凑齐三冠）
+    assert g.add_egg_gold_live() == 10, "上场 2 + 备战 1 分摊也应触发"
+    assert you.gold == 70
 
 
 def test_crown_secondary_drop_is_ten_percent():
