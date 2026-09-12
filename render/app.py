@@ -98,6 +98,7 @@ class App(AppDrawMixin, AppStateMixin):
         self.shop_open = False  # 商店浮层（点右下金币球唤出/关闭）
         self.xp_held = False  # 经验球是否被按住（长按连升）
         self.xp_cd = 0.0  # 长按连升冷却
+        self._egg_acc = 0.0  # 备战阶段三冠冕彩蛋的秒累计（每满 1s +10 金）
         # 左键单击详情：press 记录按下起点，原地松开判为单击
         self._press: dict | None = None
         self.detail: dict | None = None  # {"owner": Player, "piece": Piece}
@@ -196,6 +197,14 @@ class App(AppDrawMixin, AppStateMixin):
             self.banner["life"] -= dt
             if self.banner["life"] <= 0:
                 self.banner = None
+
+        # 三冠冕彩蛋：备战阶段也按真实时间每秒 +10 金
+        # （只要场上某棋子挂着三件冠冕，HUD 金币球就开始跳；开战再叠加战斗内 ticker）
+        if self.phase == self.PHASE_DEPLOY:
+            self._egg_acc += dt
+            if self._egg_acc >= 1.0:
+                self._egg_acc -= 1.0
+                self.game.add_egg_gold_live()
 
         # 金币数字滚动
         target = float(self.game.you.gold)

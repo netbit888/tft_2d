@@ -153,6 +153,35 @@ def test_crown_egg_gold_lump_sum_when_skipped():
     assert you.gold == out["crown"]["egg_gold"] + out["crown"]["drop_gold"]
 
 
+def test_crown_egg_gold_deploy_phase_ticks_per_second():
+    """备战阶段：场上有棋子挂着三冠冕 → add_egg_gold_live 每秒 +10 金。
+
+    add_egg_gold_live 是部署/战斗两阶段共享的彩蛋入口：备战阶段按真实
+    时间触发（render.app._update_fx），战斗阶段按 tick 触发（battle_view._step）。
+    """
+    from core.items import CROWN_IDS
+    from core.player import Piece
+
+    g = Game(seed=1)
+    g.reset_egg_paid_counter()
+    you, enemy = g.you, g.enemy
+    you.board = [Piece("s18_ornn")]
+    enemy.board = [Piece("s18_warwick")]
+    for c in CROWN_IDS:
+        you.board[0].equip.append(ItemInstance(c))
+    you.gold = 0
+
+    # 模拟 App._update_fx 在 PHASE_DEPLOY 下每秒调一次
+    for sec in range(5):
+        assert g.add_egg_gold_live() == 10, f"第 {sec+1} 秒应加 10 金"
+        assert you.gold == 10 * (sec + 1), f"累计金币 {you.gold} 错位"
+
+    # 拆掉一顶冠冕，应停止产金
+    you.board[0].equip.pop()
+    assert g.add_egg_gold_live() == 0, "冠冕不齐时不应加金"
+    assert you.gold == 50, "拆掉后金币保持 50"
+
+
 def test_crown_secondary_drop_is_ten_percent():
     """官方次要效果：判定命中时每件冠冕掉 1 金（这里把随机固定为必中验证上限）。"""
     from core.items import CROWN_IDS
