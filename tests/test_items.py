@@ -77,6 +77,7 @@ def test_crown_egg_gold_per_battle_second():
     from core.player import Piece
 
     g = Game(seed=1)
+    g.reset_egg_paid_counter()  # 显式重置，避免被前序测试污染
     you, enemy = g.you, g.enemy
     you.board = [Piece("s18_ornn")]
     enemy.board = [Piece("s18_warwick")]
@@ -93,6 +94,63 @@ def test_crown_egg_gold_per_battle_second():
     assert res["egg_gold"] == CROWN_EGG_GOLD_PER_SEC * secs, "彩蛋应按战斗中每秒产金"
     assert 0 <= res["drop_gold"] <= 3, "三件冠冕的次要掉落各至多 1 金"
     assert you.gold == res["egg_gold"] + res["drop_gold"]
+
+
+def test_crown_egg_gold_live_ticks_per_second():
+    """直播彩蛋：BattleView 每秒 +10 金，finish_battle 不双计。"""
+    from core.combat import TICK_RATE
+    from core.items import CROWN_IDS
+    from core.player import Piece
+
+    g = Game(seed=1)
+    g.reset_egg_paid_counter()
+    you, enemy = g.you, g.enemy
+    you.board = [Piece("s18_ornn")]
+    enemy.board = [Piece("s18_warwick")]
+    for c in CROWN_IDS:
+        you.board[0].equip.append(ItemInstance(c))
+    you.gold = 0
+
+    combat = g.fight()
+    assert combat is not None
+    # 模拟 BattleView._step：每 TICK_RATE 个 tick 调一次 add_egg_gold_live
+    secs_done = 0
+    while not combat.finished:
+        for _ in range(TICK_RATE):
+            if combat.finished:
+                break
+            combat.step()
+        if combat.finished:
+            break  # 最后一秒可能未触发直播，归 finish_battle 补尾
+        secs_done += 1
+        assert g.add_egg_gold_live() == 10, "每秒应加 10 金"
+
+    # 直播结束后，finish_battle 只补 0~1 秒尾账，绝不双计整笔
+    out = g.finish_battle(combat)
+    assert out["crown"]["egg_gold"] <= 10, "finish_battle 至多补 1 秒尾账"
+    expected_total = 10 * (secs_done + out["crown"]["egg_gold"] // 10)
+    assert you.gold == expected_total, f"总账 {you.gold} 应等于直播累计 {expected_total}"
+
+
+def test_crown_egg_gold_lump_sum_when_skipped():
+    """跳过回放路径：_egg_paid_secs=0 时 finish_battle 一次性补整笔彩蛋金。"""
+    from core.items import CROWN_IDS
+    from core.player import Piece
+
+    g = Game(seed=1)
+    g.reset_egg_paid_counter()
+    you, enemy = g.you, g.enemy
+    you.board = [Piece("s18_ornn")]
+    enemy.board = [Piece("s18_warwick")]
+    for c in CROWN_IDS:
+        you.board[0].equip.append(ItemInstance(c))
+    you.gold = 0
+
+    combat = g.fight()
+    combat.run()  # 跳过回放：直接算完，未直播
+    out = g.finish_battle(combat)
+    assert out["crown"]["egg_gold"] > 0, "跳过时 finish_battle 应补整笔彩蛋"
+    assert you.gold == out["crown"]["egg_gold"] + out["crown"]["drop_gold"]
 
 
 def test_crown_secondary_drop_is_ten_percent():

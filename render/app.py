@@ -228,7 +228,9 @@ class App(AppDrawMixin, AppStateMixin):
             combat,
             on_finish=self.finish_battle,
             names={"blue": g.you.name, "red": g.players[g.current_opponent].name},
+            game=g,  # 三冠冕彩蛋按秒直播 + 金需要 Game 引用
         )
+        g.reset_egg_paid_counter()
         self.phase = self.PHASE_BATTLE
 
     def finish_battle(self, combat) -> None:

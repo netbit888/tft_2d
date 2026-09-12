@@ -103,11 +103,14 @@ class BattleView:
     FLASH_TIME = 0.16  # 受击闪白时长
     BANNER_TIME = 1.1  # 技能横幅停留时长
 
-    def __init__(self, combat, on_finish, names: dict | None = None) -> None:
+    def __init__(self, combat, on_finish, names: dict | None = None, game=None) -> None:
         self.combat = combat
         self.on_finish = on_finish
         # 双方玩家名（{"blue": 名字, "red": 名字}），展示在战斗详情首行
         self.names = names or {}
+        # 用于三冠冕彩蛋按秒直播 + 金（Game 引用由 App.start_battle 传入）
+        self.game = game
+        self._egg_tick_acc = 0
         # 点选查看详情的单位（左键单击棋子打开/切换/关闭）
         self.detail_unit = None
         self.detail_anchor = None  # 打开时点击位置的屏幕坐标，详情面板固定在这里
@@ -263,6 +266,13 @@ class BattleView:
         for e in c.events[self.processed :]:
             self._on_event(e)
         self.processed = len(c.events)
+        # 三冠冕彩蛋：每 TICK_RATE 个 tick（=1 秒）+10 金，HUD 金币球即时刷新
+        if self.game is not None:
+            from core.combat import TICK_RATE  # 局部 import 避开循环依赖
+            self._egg_tick_acc += 1
+            if self._egg_tick_acc >= TICK_RATE:
+                self._egg_tick_acc = 0
+                self.game.add_egg_gold_live()
 
     def _unit_near(self, tx: float, ty: float):
         """按坐标找回被打的单位（伤害事件只有名字没有 uid）。"""

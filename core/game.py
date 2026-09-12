@@ -80,6 +80,10 @@ class Game:
         self.current_opponent: int = 1  # 玩家本人的当前对手索引
         self.last_ai_log: list[str] = []
 
+        # 三冠冕彩蛋直播计数器：BattleView 每秒调 add_egg_gold_live +1；
+        # crown_rewards 对玩家位只补 (int(secs) - _egg_paid_secs)*10，避免双计。
+        self._egg_paid_secs: int = 0
+
     # ---------- 回合流程 ----------
 
     def begin_round(self) -> None:
@@ -254,10 +258,36 @@ class Game:
                 ):
                     drop_gold += 1
 
-        egg_gold = CROWN_EGG_GOLD_PER_SEC * int(secs) if has_all_crowns(equipped) else 0
+        if has_all_crowns(equipped):
+            if idx == 0:
+                # 玩家位：彩蛋按秒直播结算（BattleView._step 每秒调一次
+                # add_egg_gold_live）。这里只补"未直播"的尾巴——跳过回放、
+                # 中途暂停、或玩家没看回放（live_blog/CLI）时仍能拿到整笔彩蛋金。
+                unpaid = max(0, int(secs) - self._egg_paid_secs)
+                egg_gold = CROWN_EGG_GOLD_PER_SEC * unpaid
+            else:
+                egg_gold = CROWN_EGG_GOLD_PER_SEC * int(secs)
+        else:
+            egg_gold = 0
         if drop_gold or egg_gold:
             self.players[idx].gold += drop_gold + egg_gold
         return {"drop_gold": drop_gold, "egg_gold": egg_gold}
+
+    def add_egg_gold_live(self) -> int:
+        """BattleView 每秒调用一次：若玩家位集齐三冠冕则 +CROWN_EGG_GOLD_PER_SEC 金，
+        返回本次实际加的金币数（用于 HUD tick 动画）。"""
+        self._egg_paid_secs += 1
+        equipped: list[str] = []
+        for u in self.players[0].board:
+            equipped.extend(it.item_id for it in u.equip)
+        if not has_all_crowns(equipped):
+            return 0
+        self.players[0].gold += CROWN_EGG_GOLD_PER_SEC
+        return CROWN_EGG_GOLD_PER_SEC
+
+    def reset_egg_paid_counter(self) -> None:
+        """每场战斗开始前由 App 调一次。"""
+        self._egg_paid_secs = 0
 
     # ------------------------------------------------------------------
     # 整回合驱动：GUI / CLI / 无头仿真共用这一套“单一真源”流程。
