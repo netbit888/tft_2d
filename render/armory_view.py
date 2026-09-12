@@ -18,26 +18,30 @@ import math
 
 import pygame
 
-from core.items import base_item_ids, item_name, load_items, special_item_ids
+from core.items import artifact_item_ids, base_item_ids, is_artifact_item, item_name, load_items, special_item_ids
 
 from . import theme
 from .assets import render, text
 from .item_view import draw_item_icon
 from .widgets import dim_overlay, panel
 
-# 与 tab 值 0/1 对应的文字
-TAB_LABELS = ("成装", "散件")
-TAB_TITLES = ("成装自选台", "散件自选台")
+# 与 tab 值 0/1/2 对应的文字：成装 / 散件 / 神器
+TAB_LABELS = ("成装", "散件", "神器")
+TAB_TITLES = ("成装自选台", "散件自选台", "神器自选台")
 TAB_FOOTERS = (
     "点击任意成装获得 1 件（可连点）｜金制拆卸器：拖到棋子身上卸下全部装备，不消耗｜按 F2 / ESC 关闭",
     "点击任意散件获得 1 件（可连点）｜散件可直接佩戴，也可两两拖拽合成成装｜按 F2 / ESC 关闭",
+    "神器为具名强力件：点击获得 1 件（可连点），直接拖到棋子身上佩戴（不可合成）｜按 F2 / ESC 关闭",
 )
 
 
 def armory_entries(tab: int = 0) -> list[str]:
-    """某一页的条目顺序：页 0=全部成装按数据序排布 + 特殊工具最后；页 1=全部基础散件。"""
+    """某一页的条目顺序：
+    页 0=全部成装按数据序排布 + 特殊工具最后；页 1=全部基础散件；页 2=全部神器。"""
     if tab == 1:
         return base_item_ids()
+    if tab == 2:
+        return artifact_item_ids()
     return list(load_items()["combine"].keys()) + list(special_item_ids())
 
 
@@ -171,7 +175,7 @@ def _item_cell(surface: pygame.Surface, rect: pygame.Rect, item_id: str, hover: 
     """装备自选台格子：装备图标（有贴图显贴图）+ 名字；hover 描高亮框。"""
     s = theme.S
     icon_size = theme.ITEM_CELL
-    special = item_id in special_item_ids() or "+" in item_id
+    special = item_id in special_item_ids() or is_artifact_item(item_id) or "+" in item_id
     icon = pygame.Rect(0, 0, icon_size, icon_size)
     icon.midtop = (rect.centerx, rect.y + int(6 * s))
     draw_item_icon(surface, icon, item_id)

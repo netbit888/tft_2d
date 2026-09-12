@@ -15,13 +15,13 @@
     "sword+wand":  { "name": "海克斯科技枪刃",       "stats": { "ad_flat": 10, "ap_flat": 10 },                "effect": "spell_vamp" },
     "sword+chain": { "name": "夜之锋刃",             "stats": { "ad_flat": 10, "armor_flat": 20 },             "effect": "none" },
     "sword+cloak": { "name": "饮血剑",               "stats": { "ad_flat": 10, "mr_flat": 20 },                "effect": "lifesteal" },
-    "sword+belt":  { "name": "斯特拉克的挑战护手",   "stats": { "ad_flat": 10, "hp_flat": 150 },               "effect": "revive" },
-    "sword+tear":  { "name": "朔极之矛",             "stats": { "ad_flat": 10, "mana_flat": 15 },              "effect": "on_cast_buff" },
+    "sword+belt":  { "name": "斯特拉克的挑战护手",   "stats": { "ad_flat": 10, "hp_flat": 150 },               "effect": "none" },
+    "sword+tear":  { "name": "朔极之矛",             "stats": { "ad_flat": 10, "mana_flat": 15 },              "effect": "none" },
     "sword+glove": { "name": "无尽之刃",             "stats": { "ad_flat": 10, "crit_flat": 0.05 },            "effect": "crit_damage" },
 
     "bow+bow":     { "name": "红霸符",               "stats": { "attack_speed_pct": 0.30 },                    "effect": "none" },
     "bow+wand":    { "name": "鬼索的狂暴之刃",       "stats": { "attack_speed_pct": 0.15, "ap_flat": 10 },     "effect": "ramping_as" },
-    "bow+chain":   { "name": "泰坦的坚决",           "stats": { "attack_speed_pct": 0.15, "armor_flat": 20 },  "effect": "aoe_cleave" },
+    "bow+chain":   { "name": "泰坦的坚决",           "stats": { "attack_speed_pct": 0.15, "armor_flat": 20 },  "effect": "none" },
     "bow+cloak":   { "name": "海妖之怒",             "stats": { "attack_speed_pct": 0.15, "mr_flat": 20 },     "effect": "multi_shot" },
     "bow+belt":    { "name": "纳什之牙",             "stats": { "attack_speed_pct": 0.15, "hp_flat": 150 },    "effect": "none" },
     "bow+tear":    { "name": "斯塔缇克电刃",         "stats": { "attack_speed_pct": 0.15, "mana_flat": 15 },   "effect": "none" },
@@ -41,7 +41,7 @@
     "chain+glove": { "name": "坚定之心",             "stats": { "armor_flat": 20, "crit_flat": 0.05 },         "effect": "none" },
 
     "cloak+cloak": { "name": "巨龙之爪",             "stats": { "mr_flat": 40 },                               "effect": "magic_resist" },
-    "cloak+belt":  { "name": "薄暮法袍",             "stats": { "mr_flat": 20, "hp_flat": 150 },               "effect": "slow_aura" },
+    "cloak+belt":  { "name": "薄暮法袍",             "stats": { "mr_flat": 20, "hp_flat": 150 },               "effect": "none" },
     "cloak+tear":  { "name": "适应性头盔",           "stats": { "mr_flat": 20, "mana_flat": 15 },              "effect": "none" },
     "cloak+glove": { "name": "水银饰带",             "stats": { "mr_flat": 20, "crit_flat": 0.05 },            "effect": "none" },
 
@@ -52,5 +52,11 @@
     "tear+tear":   { "name": "蓝霸符",               "stats": { "mana_flat": 30 },                             "effect": "none" },
     "tear+glove":  { "name": "正义之手",             "stats": { "mana_flat": 15, "crit_flat": 0.05 },          "effect": "none" },
     "glove+glove": { "name": "窃贼手套",             "stats": { "crit_flat": 0.10 },                           "effect": "none" }
+  },
+  "artifacts": {
+    "guardian_angel": { "name": "守护天使", "stats": { "ad_flat": 15, "armor_flat": 20 },          "effect": "revive" },
+    "trinity_force":  { "name": "三相之力", "stats": { "ad_flat": 15, "attack_speed_pct": 0.15, "mana_flat": 15 }, "effect": "on_cast_buff" },
+    "titanic_hydra":  { "name": "巨型九头蛇", "stats": { "hp_flat": 200, "ad_flat": 15 },          "effect": "aoe_cleave" },
+    "frozen_heart":   { "name": "冰霜之心", "stats": { "armor_flat": 30, "mana_flat": 20 },        "effect": "slow_aura" }
   }
 }

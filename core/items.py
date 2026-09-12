@@ -42,8 +42,17 @@ def is_base_item(item_id: str) -> bool:
     return item_id in load_items()["base"]
 
 
+def is_artifact_item(item_id: str) -> bool:
+    """是否神器（守护天使/三相/九头蛇/冰心等具名强力件，成装自选台单独成页，不进合成）。"""
+    return item_id in load_items()["artifacts"]
+
+
 def base_item_ids() -> list[str]:
     return list(load_items()["base"].keys())
+
+
+def artifact_item_ids() -> list[str]:
+    return list(load_items()["artifacts"].keys())
 
 
 def combine_key(a: str, b: str) -> str | None:
@@ -86,6 +95,8 @@ def item_name(item_id: str) -> str:
         return items["base"][item_id]["name"]
     if item_id in items["combine"]:
         return items["combine"][item_id]["name"]
+    if item_id in items["artifacts"]:
+        return items["artifacts"][item_id]["name"]
     special = SPECIAL_ITEMS.get(item_id)
     if special is not None:
         return special
@@ -99,6 +110,8 @@ def item_stats(item_id: str) -> dict:
         return items["base"][item_id]["stats"]
     if item_id in items["combine"]:
         return items["combine"][item_id]["stats"]
+    if item_id in items["artifacts"]:
+        return items["artifacts"][item_id]["stats"]
     return {}
 
 
@@ -107,6 +120,8 @@ def item_effect(item_id: str) -> str:
     items = load_items()
     if item_id in items["combine"]:
         return items["combine"][item_id].get("effect", "none")
+    if item_id in items["artifacts"]:
+        return items["artifacts"][item_id].get("effect", "none")
     return "none"
 
 

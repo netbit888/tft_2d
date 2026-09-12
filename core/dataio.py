@@ -169,4 +169,16 @@ def check_data() -> list[str]:
         if effect not in SUPPORTED_EFFECTS:
             errors.append(f"合成装备 {key} 使用了战斗层未支持的 effect：{effect}")
 
+    # ---- artifacts.json（神器）----
+    artifacts = items.get("artifacts", {})
+    for aid, data in artifacts.items():
+        if not data.get("name"):
+            errors.append(f"神器 {aid} 缺少 name")
+        for k in data.get("stats", {}):
+            if k not in ALLOWED_STAT_KEYS:
+                errors.append(f"神器 {aid} 使用未知属性 {k}")
+        effect = data.get("effect", "none")
+        if effect not in SUPPORTED_EFFECTS:
+            errors.append(f"神器 {aid} 使用了战斗层未支持的 effect：{effect}")
+
     return errors

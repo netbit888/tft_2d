@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pygame
 
-from core.items import is_base_item, is_special_item, item_name
+from core.items import is_artifact_item, is_base_item, is_special_item, item_name
 
 from . import theme
 from .assets import render as render_text
@@ -39,6 +39,8 @@ def _item_subdir(item_id: str) -> str | None:
         return "special"
     if is_base_item(item_id):
         return "base"
+    if is_artifact_item(item_id):
+        return "artifacts"
     if "+" in item_id:
         return "combine"
     return None
@@ -111,13 +113,17 @@ def draw_item_icon(surface: pygame.Surface, rect: pygame.Rect, item_id: str, dim
     稀有度底色与描边在两种模式下都保留（成装/特殊工具金色，基础件灰白）。
     """
     is_combined = "+" in item_id
+    is_artifact = is_artifact_item(item_id)
+    is_premium = is_combined or is_special_item(item_id) or is_artifact
     if is_special_item(item_id):
         base = (74, 54, 20)  # 特殊工具：亮金底色
+    elif is_artifact:
+        base = (70, 44, 22)  # 神器：暗金底色（比成装稍亮，凸显稀有）
     elif is_combined:
         base = (58, 46, 24)
     else:
         base = theme.PANEL_LIGHT
-    edge = theme.GOLD if (is_combined or is_special_item(item_id)) else theme.BORDER
+    edge = theme.GOLD if is_premium else theme.BORDER
     panel(surface, rect, base, radius=8, border=edge, width=max(2, 2 * theme.S))
 
     pad = max(2, int(4 * theme.S))
