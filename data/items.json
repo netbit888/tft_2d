@@ -22,7 +22,7 @@
     "bow+bow":     { "name": "红霸符",               "stats": { "attack_speed_pct": 0.30 },                    "effect": "none" },
     "bow+wand":    { "name": "鬼索的狂暴之刃",       "stats": { "attack_speed_pct": 0.15, "ap_flat": 10 },     "effect": "ramping_as" },
     "bow+chain":   { "name": "泰坦的坚决",           "stats": { "attack_speed_pct": 0.15, "armor_flat": 20 },  "effect": "none" },
-    "bow+cloak":   { "name": "卢安娜的飓风",         "stats": { "attack_speed_pct": 0.15, "mr_flat": 20 },     "effect": "multi_shot" },
+    "bow+cloak":   { "name": "海妖之怒",             "stats": { "attack_speed_pct": 0.15, "mr_flat": 20 },     "effect": "multi_shot" },
     "bow+belt":    { "name": "纳什之牙",             "stats": { "attack_speed_pct": 0.15, "hp_flat": 150 },    "effect": "none" },
     "bow+tear":    { "name": "斯塔缇克电刃",         "stats": { "attack_speed_pct": 0.15, "mana_flat": 15 },   "effect": "none" },
     "bow+glove":   { "name": "最后的轻语",           "stats": { "attack_speed_pct": 0.15, "crit_flat": 0.05 }, "effect": "armor_pen" },
@@ -34,9 +34,9 @@
     "wand+tear":   { "name": "大天使之杖",           "stats": { "ap_flat": 10, "mana_flat": 15 },              "effect": "mana_ap" },
     "wand+glove":  { "name": "珠光护手",             "stats": { "ap_flat": 10, "crit_flat": 0.05 },            "effect": "ability_crit" },
 
-    "chain+chain": { "name": "荆棘之甲",             "stats": { "armor_flat": 40 },                            "effect": "thorns" },
+    "chain+chain": { "name": "荆棘背心",             "stats": { "armor_flat": 40 },                            "effect": "thorns" },
     "chain+cloak": { "name": "石像鬼石板甲",         "stats": { "armor_flat": 20, "mr_flat": 20 },             "effect": "none" },
-    "chain+belt":  { "name": "红色增益",             "stats": { "armor_flat": 20, "hp_flat": 150 },            "effect": "burn" },
+    "chain+belt":  { "name": "日炎斗篷",             "stats": { "armor_flat": 20, "hp_flat": 150 },            "effect": "burn" },
     "chain+tear":  { "name": "圣盾使的誓约",         "stats": { "armor_flat": 20, "mana_flat": 15 },           "effect": "none" },
     "chain+glove": { "name": "坚定之心",             "stats": { "armor_flat": 20, "crit_flat": 0.05 },         "effect": "none" },
 
