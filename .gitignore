@@ -15,6 +15,7 @@ env/
 *.gif
 !assets/units/*.png
 !assets/traits/*.png
+!assets/items/**/*.png
 
 # 系统文件
 Thumbs.db
